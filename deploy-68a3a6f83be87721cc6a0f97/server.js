@@ -71,7 +71,7 @@ app.post('/api/alternatives', async (req, res) => {
 		
 Please provide me with:
 1. A brief description of what this component is and include the package type. Verify the package type explicitly from the manufacturer's datasheet or distributor platforms like Digi-Key or Mouser. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Avoid assumptions and verify the package information and ordering information in the datasheets for most accurate package information.
-2. Please provide 5 alternative part numbers that could serve as replacements for the original component. These alternatives must be:
+2. Please provide 10 alternative part numbers that could serve as replacements for the original component. These alternatives must be:
 	- Sorted by similarity, with the most similar listed first.
 	- Similarity is determined by:
 		- Functionality match: The alternate must perform the same core function as the original (e.g., if the original is a zero-delay buffer with 8 output channels, the alternate must also be a zero-delay buffer with 8 output channels).
