@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Part Analysis Tool</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<div class="container">
+		<!-- Part Alternatives Section -->
+		<div class="card">
+			<h1>🔧 Find Part Alternatives</h1>
+			<p class="subtitle">Enter a part number to find AI-powered alternatives</p>
+			
+			<div class="input-group">
+				<input 
+					type="text" 
+					id="partInput" 
+					placeholder="Enter part number (e.g., LM317, Intel i7-10700K)..."
+					class="input-field"
+				>
+				<button id="searchBtn" class="search-btn">
+					<span>Find Alternatives</span>
+					<div class="spinner" id="spinner"></div>
+				</button>
+			</div>
+			
+			<div class="results" id="results">
+				<div class="placeholder">
+					<div class="placeholder-icon">🔧</div>
+					<p>Enter a part number to find alternatives</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Part Comparison Section -->
+		<div class="card">
+			<h1>⚖️ Compare Two Parts</h1>
+			<p class="subtitle">Compare any two parts for detailed analysis with pinout diagrams</p>
+			
+			<div class="input-group">
+				<input 
+					type="text" 
+					id="partAInput" 
+					placeholder="Enter Part A (e.g., LM317, PIC16F877A)..."
+					class="input-field"
+				>
+				<input 
+					type="text" 
+					id="partBInput" 
+					placeholder="Enter Part B (e.g., LT3080, ATmega328P)..."
+					class="input-field"
+				>
+				<button id="compareBtn" class="search-btn">
+					<span>Compare Parts</span>
+					<div class="spinner" id="compareSpinner"></div>
+				</button>
+			</div>
+			
+			<div class="results" id="compareResults">
+				<div class="placeholder">
+					<div class="placeholder-icon">⚖️</div>
+					<p>Enter two parts to compare their specifications</p>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<script src="script.js"></script>
+</body>
+</html>
