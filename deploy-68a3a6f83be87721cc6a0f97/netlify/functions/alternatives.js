@@ -99,7 +99,7 @@ Format the response in clear markdown with proper headings, bullet points, and v
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-4o',
+				model: 'gpt-4.1',
 				messages: [
 					{
 						role: 'system',
