@@ -110,7 +110,7 @@ Format the response in clear markdown with proper headings, bullet points, and v
 						content: prompt
 					}
 				],
-				max_tokens: 1000
+				max_tokens: 10000
 			})
 		});
 
