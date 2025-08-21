@@ -71,7 +71,20 @@ app.post('/api/alternatives', async (req, res) => {
 		
 Please provide me with:
 1. A brief description of what this component is and include the package type. Verify the package type explicitly from the manufacturer's datasheet or distributor platforms like Digi-Key or Mouser. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Avoid assumptions and verify the package information and ordering information in the datasheets for most accurate package information.
-2. 5 alternative part numbers that could serve as replacements. These replacements must be sorted by most similar to the original part. Similarity is determined by package type and functionality. Alternates must match the functionality of the original part (if original part has 8-output channels, alternate parts must also have 8-output channels. If original part is 4 Kb SPD EEPROM, alternate part must also have 4 Kb SPD EEPROM. If original part is a zero-delay buffer with 8 output channels, alternate must be a zero-delay buffer with 8 output channels). Generalize these examples for other functionalities. If an alternate is marked as Obsolete on a distributer or manufactuer website, do not include in the list of alternate.
+2. Please provide 5 alternative part numbers that could serve as replacements for the original component. These alternatives must be:
+	- Sorted by similarity, with the most similar listed first.
+	- Similarity is determined by:
+		- Functionality match: The alternate must perform the same core function as the original (e.g., if the original is a zero-delay buffer with 8 output channels, the alternate must also be a zero-delay buffer with 8 output channels).
+		- Package compatibility: The alternate must use the same package type (e.g., TSSOP-16) or have an identical footprint and pinout.
+	- Functional Matching Rules
+		- Alternates must match the functional category and key specs of the original part. Examples include:
+			- If the original part is a zero-delay buffer with 8 output channels, the alternate must also be a zero-delay buffer with 8 output channels.
+			- If the original part is a 4 Kb SPD EEPROM, the alternate must also be a 4 Kb SPD EEPROM.
+			- If the original part is a 3.3V LVCMOS clock driver, the alternate must also be a 3.3V LVCMOS clock driver.
+			- If the original part is a voltage regulator, the alternate must match the output voltage, current rating, and regulation type (e.g., LDO vs switching).
+
+		- The alternate must use the same package type (e.g., TSSOP-16, SOIC-8, QFN-32).
+			- If no package-compatible alternatives exist, functionally similar parts may be suggested, but must be clearly marked as requiring PCB or firmware changes.
 3. For each alternative, include:
    - Part number
    - Brief description of key specifications. Be sure to include the package type and verify it from the manufacturer's datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.
