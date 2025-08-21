@@ -132,7 +132,7 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-4.1',
+				model: 'gpt-4o',
 				messages: [
 					{ role: 'system', content: systemPrompt },
 					{ role: 'user', content: userPrompt }
