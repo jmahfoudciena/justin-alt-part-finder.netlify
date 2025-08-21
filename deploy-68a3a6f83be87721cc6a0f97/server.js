@@ -77,7 +77,7 @@ Please provide me with:
 		- Functionality match: The alternate must perform the same core function as the original (e.g., if the original is a zero-delay buffer with 8 output channels, the alternate must also be a zero-delay buffer with 8 output channels).
 		- Package compatibility: The alternate must use the same package type (e.g., TSSOP-16) or have an identical footprint and pinout.
 	- Functional Matching Rules
-		- Alternates must match the functional category and key specs of the original part. Examples include:
+		- Alternates must match the functional category and key specs of the original part. Do not rely solely on distributor or manufacturer category labels, as these may differ. Instead, verify functionality directly from datasheet keywords (e.g., ‘zero delay,’ ‘PLL,’ ‘fanout buffer,’ output count, package type). Include any part that is functionally equivalent, even if grouped under a different product category such as ‘SDRAM buffer,’ ‘clock tree,’ or ‘fanout buffer.. Examples include:
 			- If the original part is a zero-delay buffer with 8 output channels, the alternate must also be a zero-delay buffer with 8 output channels.
 			- If the original part is a 4 Kb SPD EEPROM, the alternate must also be a 4 Kb SPD EEPROM.
 			- If the original part is a 3.3V LVCMOS clock driver, the alternate must also be a 3.3V LVCMOS clock driver.
