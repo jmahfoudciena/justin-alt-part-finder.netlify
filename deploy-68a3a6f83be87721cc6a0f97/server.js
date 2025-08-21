@@ -71,16 +71,18 @@ app.post('/api/alternatives', async (req, res) => {
 		
 Please provide me with:
 1. A brief description of what this component is and include the package type. Verify the package type explicitly from the manufacturer's datasheet or distributor platforms like Digi-Key or Mouser. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Avoid assumptions and verify the package information and ordering information in the datasheets for most accurate package information.
-2. 3-5 alternative part numbers that could serve as replacements. These replacements must be sorted by most similar to the original part. Similarity is determined by package type and functionality.
+2. 3-5 alternative part numbers that could serve as replacements. These replacements must be sorted by most similar to the original part. Similarity is determined by package type and functionality. Alternates must match the functionality of the original part (if original part has 8-output channels, alternate parts must also have 8-output channels. If original part is 4 Kb SPD EEPROM, alternate part must also have 4 Kb SPD EEPROM)
 3. For each alternative, include:
    - Part number
    - Brief description of key specifications. Be sure to include the package type and verify it from the manufacturer's datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.
    - Any notable differences from the original part
    - Manufacturer name if known
+   - List if the alternate part matches the functionality and the package of the original part
 4. If no alternatives are package-compatible, explicitly state this and suggest options that are functionally similar but require changes to the PCB or firmware.
 5. Include a **Summary and Conclusion** section:
    - **Summary:** Provide a clear overview of the findings, highlighting whether package-compatible alternatives exist or if PCB modifications are required. Include package-compatible alternatives and functionally similar alternatives. 
    - **Conclusion:** Offer actionable insights, such as whether redesigning the PCB or adapting firmware is necessary and which alternatives are most suitable based on the findings.
+
 
 IMPORTANT: Make each alternative visually distinct and easy to separate. Use clear section breaks, numbered lists, or visual separators between each alternative. Consider using:
 - Clear numbered sections (1., 2., 3.)
