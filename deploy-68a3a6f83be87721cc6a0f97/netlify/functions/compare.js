@@ -137,7 +137,7 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 					{ role: 'system', content: systemPrompt },
 					{ role: 'user', content: userPrompt }
 				],
-				max_tokens: 2000,
+				max_completion_tokens: 2000,
 				temperature: 0.1
 			})
 		});
