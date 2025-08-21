@@ -158,6 +158,7 @@ app.post('/api/compare', async (req, res) => {
 			'- For any values you provide, indicate if they are typical, minimum, maximum, or absolute maximum ratings',
 			'- When comparing components, focus on verified differences rather than assumptions',
 			'- If package or footprint information is unclear, explicitly state the limitations',
+			'- For package, Be sure to include the package type and verify it from the manufacturers datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.',
 			'- For electrical specifications, always specify the conditions (temperature, voltage, etc.) when possible',
 			'Your analysis must include:',
 			'- Detailed electrical specifications with exact values (only if verified)',
