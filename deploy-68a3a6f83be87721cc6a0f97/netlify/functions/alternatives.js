@@ -99,7 +99,7 @@ Format the response in clear markdown with proper headings, bullet points, and v
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-4.1',
+				model: 'gpt-4o',
 				messages: [
 					{
 						role: 'system',
@@ -110,7 +110,7 @@ Format the response in clear markdown with proper headings, bullet points, and v
 						content: prompt
 					}
 				],
-				max_tokens: 10000
+				max_tokens: 1000
 			})
 		});
 
