@@ -112,7 +112,7 @@ Format the response in clear markdown with proper headings, bullet points, and v
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-4o',
+				model: 'GPT-5',
 				messages: [
 					{
 						role: 'system',
@@ -240,7 +240,7 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-4o',
+				model: 'GPT-5',
 				messages: [
 					{ role: 'system', content: systemPrompt },
 					{ role: 'user', content: userPrompt }
