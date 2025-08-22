@@ -66,6 +66,7 @@ Follow these requirements carefully:
 	• Provide the current unit price from Digi-Key or Mouser (cite distributor).
 2. Alternatives Search
 	• Identify 3 alternative components from other reputable semiconductor manufacturers. Alternate component must be found on Digi-Key and have a Manufacturer Product Number.
+ 		• This setp is critical. If the alternate part is not found on Digi-Key as a Manufacturer Product Number, do not recommend it.
 	• Confirm availability and lifecycle status using distributor listings (only use Digi-Key or Mouser).
 	• Do not recommend any parts that are obsolete.
 	• Acceptable lifecycle statuses: Active, NRND (Not Recommended for New Designs), or Last Time Buy — but clearly disclose if not Active.
