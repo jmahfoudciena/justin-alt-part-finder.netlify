@@ -54,7 +54,7 @@ exports.handler = async (event, context) => {
 			};
 		}
 
-		const prompt = `I need to find 5 alternative components for the electronic part number: ${partNumber}. 
+		const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}. 
 		
 Follow these requirements carefully:
 1. Original Part Verification
@@ -65,7 +65,7 @@ Follow these requirements carefully:
 	• Clearly cite the datasheet section and/or distributor page where the package information is confirmed.
 	• Provide the current unit price from Digi-Key or Mouser (cite distributor).
 2. Alternatives Search
-	• Identify 5 alternative components from other reputable semiconductor manufacturers. Alternate component must be found on Digi-Key or Mouser.
+	• Identify 3 alternative components from other reputable semiconductor manufacturers. Alternate component must be found on Digi-Key and have a Manufacturer Product Number.
 	• Confirm availability and lifecycle status using distributor listings (only use Digi-Key or Mouser).
 	• Do not recommend any parts that are obsolete.
 	• Acceptable lifecycle statuses: Active, NRND (Not Recommended for New Designs), or Last Time Buy — but clearly disclose if not Active.
@@ -85,7 +85,7 @@ Follow these requirements carefully:
 	• Price per unit (with source: Digi-Key or Mouser)
 	• Link to Digi-Key or Mouser product page
 4. Ranking
-• Rank the 5 alternatives by closeness to the original part using this order of priority:
+• Rank the 3 alternatives by closeness to the original part using this order of priority:
 	- Package match or closest equivalent
 	- Functional match (role, features, electrical/spec similarity)
 	- Lifecycle status
