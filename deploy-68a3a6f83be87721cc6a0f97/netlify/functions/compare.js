@@ -138,12 +138,13 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-5',
+				model: 'gpt-5-mini',
 				messages: [
 					{ role: 'system', content: systemPrompt },
 					{ role: 'user', content: userPrompt }
 				],
 				max_completion_tokens: 40000,
+				reasoning_effort: "high"
 			})
 		});
 
