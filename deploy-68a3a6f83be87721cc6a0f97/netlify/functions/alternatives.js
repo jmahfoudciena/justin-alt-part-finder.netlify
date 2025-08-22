@@ -83,18 +83,12 @@ Follow these requirements carefully:
   - Provide price per unit with distributor citation
   - Note any differences (footprint, electrical, interface, software)
   - Include confidence level (High / Medium / Low)
-3. Output Format
-For each alternative, include:
-• Manufacturer & Part Number (include variant/suffix if used)
-• Short Description (function + key specs)
-• Package Type (with datasheet & distributor citation)
-• Pinout Compatibility
-• Block Diagram Functional Summary
-• Lifecycle Status (cite distributor)
-• Notes on Compatibility
-• Price per Unit (with link)
-• Confidence Level
-• Deviations from Original
+3. For each alternative, include:
+   - Part number
+   - Brief description of key specifications. Be sure to include the package type and verify it from the manufacturer's datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.
+   - Any notable differences from the original part
+   - Manufacturer name if known. Do not limit to manufacturer of original part.
+   - List if the alternate part matches the functionality and the package of the original part• Price per Unit (with link)
 4. Ranking
 Rank the 3 alternatives by closeness to the original part using these priorities:
 1. Package Match
