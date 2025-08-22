@@ -144,7 +144,6 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 					{ role: 'user', content: userPrompt }
 				],
 				max_completion_tokens: 4000,
-				temperature: 0.1
 			})
 		});
 
