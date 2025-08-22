@@ -62,8 +62,8 @@ exports.handler = async (event, context) => {
 			'- Prioritize accuracy over completeness - it is better to provide less information that is correct than more information that may be wrong',
 			'- For any values you provide, indicate if they are typical, minimum, maximum, or absolute maximum ratings',
 			'- When comparing components, focus on verified differences rather than assumptions',
-			'- If package or footprint information is unclear, explicitly state the limitations',
-			'- For package, Be sure to include the package type and verify it from the manufacturers datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.',
+			'- If package or footprint information is unclear, explicitly state the limitations. Do not assume or invent package type.',
+			'- For package, Be sure to include the package type and verify it from the manufacturers datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Confirm using: Official datasheet (Features, Description, Ordering Information) Distributor listings (e.g., Digi-Key, Mouser)',
 			'- For electrical specifications, always specify the conditions (temperature, voltage, etc.) when possible',
 			'Your analysis must include:',
 			'- Detailed electrical specifications with exact values (only if verified)',
@@ -86,6 +86,9 @@ Provide a comprehensive analysis including:
    - ${partB} Value
    - Difference (highlight in bold if significant)
    - Impact Assessment
+   - Function and application of each part.  
+   - High-level block diagram summary (if available).  
+   - Notable differences in intended use.  
 
 2. **ELECTRICAL SPECIFICATIONS** - Create a markdown table with these columns:
    - Specification
