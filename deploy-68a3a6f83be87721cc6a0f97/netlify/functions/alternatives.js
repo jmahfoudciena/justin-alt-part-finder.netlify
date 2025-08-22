@@ -54,56 +54,61 @@ exports.handler = async (event, context) => {
 			};
 		}
 
-		const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}. 
-		
+const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
+
 Follow these requirements carefully:
+
 1. Original Part Verification
-   • Provide a short description of the original component (its main function and key specifications).
+   • Provide a short description of the original component, including its main function and key specifications.
    • Verify the package type by checking both:
-       ◦ The official datasheet (Features, Description, and Ordering Information sections)
-       ◦ A distributor listing (such as Digi-Key or Mouser)
-       ◦ Do not invent or assume package. If Supplier Device Package cannot be confirmed on Digi-Key or Mouser, do not include it in the results.
-   • Clearly cite the datasheet section and/or distributor page where the package information is confirmed.
-   • Provide the current unit price from Digi-Key or Mouser (cite distributor).
+       ◦ The official datasheet (Features, Description, Ordering Information sections)
+       ◦ A distributor listing (Digi-Key or Mouser)
+       ◦ Do not invent or assume package. If Supplier Device Package cannot be confirmed on Digi-Key or Mouser, exclude it.
+   • Verify core electrical specifications (e.g., voltage, current, frequency, timing, power) from the datasheet, and explicitly cite the datasheet sections.
+   • Verify the pinout matches the original (from datasheet).
+   • Provide current unit price from Digi-Key or Mouser, with a direct citation/link.
+   • Include the lifecycle status (Active, NRND, Last Time Buy) from the distributor.
 
 2. Alternatives Search
-   • Identify 3 alternative components from other reputable semiconductor manufacturers. Each alternate must be listed on Digi-Key with an orderable Manufacturer Product Number or a confirmed variant of the base part number (e.g., suffixes like -DGGR, -DW) that is functionally equivalent.
-   • If the base manufacturer part number is not orderable on Digi-Key, include purchasable variants or suffixes that are verified in the datasheet to be functionally identical and package-compatible.
-   • Confirm availability and lifecycle status using distributor listings (Digi-Key or Mouser only). Acceptable lifecycle statuses: Active, NRND, or Last Time Buy. Exclude obsolete parts. Clearly disclose if the part is not Active.
-   • Each alternative must be functionally identical or very close in purpose (perform the same role, with comparable electrical ranges and interface). Verify functionality using datasheet keywords (e.g., 'zero delay', 'PLL', 'fanout buffer', output count, package type), regardless of distributor category grouping.
-   • Prioritize alternatives that match both **functionality** and **package type**. Include parts that match the datasheet even if distributor does not explicitly list them as alternates.
-   • Verify package and key features for each alternate using:
-       ◦ The official datasheet (Features, Description, Ordering Information)
-       ◦ Distributor listings for lifecycle status, pricing, and availability.
-   • Provide the current unit price from Digi-Key or Mouser for each alternative (cite distributor).
+   • Identify 3 alternative components from reputable semiconductor manufacturers (e.g., TI, Analog Devices, NXP, ON Semi, Microchip). Each must be listed on Digi-Key or Mouser with an orderable Manufacturer Product Number or verified variant/suffix that is functionally equivalent.
+   • Confirm availability and lifecycle status using distributor listings. Acceptable statuses: Active, NRND, or Last Time Buy. Exclude obsolete parts. Clearly disclose if the part is not Active.
+   • Prioritize alternatives that match both **functionality** and **package type**. If a perfect match does not exist, note differences and required adaptations (PCB, firmware, or electrical).
+   • Verify:
+       ◦ Core electrical specs from datasheet (voltage, current, frequency, timing)
+       ◦ Pinout compatibility
+       ◦ Package type (cite datasheet Ordering Info section)
+       ◦ Functionality keywords (e.g., PLL, zero delay, fanout buffer, output count)
+   • Provide current unit price from Digi-Key or Mouser with citation/link.
+   • Include any minor differences or deviations from the original (footprint, electrical range, interface, software considerations).
+   • Include confidence level in suitability (High / Medium / Low).
 
 3. Output Format (for original + alternatives)
    • Manufacturer & Part Number (include variant/suffix if used)
    • Short description (function + key specifications)
-   • Package type (with citation from datasheet ordering section and distributor)
-   • Lifecycle status (Active, NRND, Last Time Buy — exclude obsolete; cite distributor or manufacturer)
+   • Core electrical specifications (voltage, current, frequency, timing)
+   • Package type (with datasheet and distributor citations)
+   • Pinout compatibility confirmation
+   • Lifecycle status (Active, NRND, Last Time Buy — cite distributor)
    • Notes on compatibility (footprint identical, package differs, electrical/software considerations)
-   • Price per unit (with source: Digi-Key or Mouser)
+   • Price per unit (with source link)
+   • Confidence level (High / Medium / Low)
+   • Any deviations from original
 
 4. Ranking
-   • Rank the 3 alternatives by closeness to the original part using this priority:
+   • Rank the 3 alternatives by closeness to the original part using these priorities:
        1. Package match or closest equivalent
        2. Functional match (role, features, electrical/spec similarity)
        3. Lifecycle status
        4. Distributor availability
        5. Price competitiveness
+   • Include a brief rationale for ranking.
 
-5. Include a Summary and Conclusion section:
-   • Summary: Provide a clear overview of the findings, highlighting whether package-compatible alternatives exist or if PCB modifications are required. Include package-compatible alternatives and functionally similar alternatives.
-   • Conclusion: Offer actionable insights, such as whether redesigning the PCB or adapting firmware is necessary and which alternatives are most suitable based on the findings.
+5. Summary and Conclusion
+   • Summary: Provide a clear overview of findings, highlighting whether package-compatible alternatives exist, or if PCB/firmware adaptations are required.
+   • Conclusion: Offer actionable insights on whether redesigning PCB, adapting firmware, or minor adjustments are necessary. Recommend the most suitable alternatives based on package, functionality, lifecycle, and availability.
+   • Include date of availability verification for all parts.
 
-IMPORTANT: Make each alternative visually distinct and easy to separate. Use clear section breaks, numbered lists, or visual separators between each alternative. Consider using:
-- Clear numbered sections (1., 2., 3.)
-- Horizontal rules (---) between alternatives
-- Distinct headings for each alternative
-- Bullet points with clear spacing
-
-Format the response in clear markdown with proper headings, bullet points, and visual separation between alternatives.`;
+Ensure all information is accurate, cited from official datasheets or distributor listings, and avoid inventing part numbers, packages, or specifications.`;
 
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
