@@ -62,6 +62,7 @@ Follow these requirements carefully:
 	• Verify the package type by checking both:
 		• The official datasheet (Features, Description, and Ordering Information sections)
 		• A distributor listing (such as Digi-Key or Mouser)
+  			• Do not invent or assume package. If Supplier Device Package cannot be confirmed on Digi-Key or Mouser, do not include it in the results.
 	• Clearly cite the datasheet section and/or distributor page where the package information is confirmed.
 	• Provide the current unit price from Digi-Key or Mouser (cite distributor).
 2. Alternatives Search
