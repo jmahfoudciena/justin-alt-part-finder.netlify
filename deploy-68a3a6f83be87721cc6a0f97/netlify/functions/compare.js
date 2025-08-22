@@ -73,7 +73,7 @@ exports.handler = async (event, context) => {
 			'- Highlight ALL differences, no matter how small',
 			'- Include datasheet URLs and manufacturer information when available',
 			'- Read the datasheets for both parts and compare the specifications',
-			'Be extremely thorough, accurate, and conservative in your analysis. When in doubt, state the uncertainty clearly.'
+			'- Be extremely thorough, accurate, and conservative in your analysis. When in doubt, state the uncertainty clearly.'
 		].join(' ');
 
 		const userPrompt = `Compare these two electronic components: "${partA}" vs "${partB}".
@@ -138,7 +138,7 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-4.1-mini',
+				model: 'gpt-4o',
 				messages: [
 					{ role: 'system', content: systemPrompt },
 					{ role: 'user', content: userPrompt }
