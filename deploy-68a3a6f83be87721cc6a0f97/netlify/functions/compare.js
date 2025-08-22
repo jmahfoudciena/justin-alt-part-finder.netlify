@@ -10,17 +10,23 @@ marked.setOptions({
 });
 
 exports.handler = async (event, context) => {
-	// CORS headers
+	// Handle CORS
 	const headers = {
 		'Access-Control-Allow-Origin': '*',
 		'Access-Control-Allow-Headers': 'Content-Type',
 		'Access-Control-Allow-Methods': 'POST, OPTIONS'
 	};
 
+	// Handle OPTIONS request for CORS preflight
 	if (event.httpMethod === 'OPTIONS') {
-		return { statusCode: 200, headers, body: '' };
+		return {
+			statusCode: 200,
+			headers,
+			body: ''
+		};
 	}
 
+	// Only allow POST requests
 	if (event.httpMethod !== 'POST') {
 		return {
 			statusCode: 405,
@@ -71,7 +77,7 @@ exports.handler = async (event, context) => {
 		].join(' ');
 
 		const userPrompt = `Compare these two electronic components: "${partA}" vs "${partB}".
-		
+
 Provide a comprehensive analysis including:
 
 1. **OVERVIEW TABLE** - Create a markdown table with these columns:
@@ -80,9 +86,9 @@ Provide a comprehensive analysis including:
    - ${partB} Value
    - Difference (highlight in bold if significant)
    - Impact Assessment
-   - Function and application of each part
-   - High-level block diagram summary (if available)
-   - Notable differences in intended use
+   - Function and application of each part.  
+   - High-level block diagram summary (if available).  
+   - Notable differences in intended use.  
 
 2. **ELECTRICAL SPECIFICATIONS** - Create a markdown table with these columns:
    - Specification
@@ -101,10 +107,10 @@ Provide a comprehensive analysis including:
    - Physical Characteristic
    - ${partA} Specification
    - ${partB} Specification
-   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Operating temperature range. Side-by-side pinout comparison:
-       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B
-       ◦ Explicitly mark mismatches
-       ◦ This information should be taken from manufacturer datasheet. Do not assume. Never invent
+   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Operating temperature range. Side-by-side pinout comparison:  
+       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B.  
+       ◦ Explicitly mark mismatches.  
+	   ◦ This information should be taken out of manufactuer datasheet . Do not assume. Never invent. 
 
 5. **DROP-IN COMPATIBILITY ASSESSMENT**:
    - Overall compatibility score (0-100%)
@@ -125,7 +131,6 @@ Provide a comprehensive analysis including:
 
 Format the response in clean markdown with proper tables, code blocks for ASCII art, and ensure all differences are clearly highlighted. Be extremely detailed, thorough, and ACCURATE in your analysis. Prioritize correctness over completeness.`;
 
-		// Call OpenAI GPT-5 Mini
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
 			headers: {
@@ -153,9 +158,7 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 		}
 
 		const data = await response.json();
-
-		// gpt-5-mini returns content directly
-		const markdownContent = data?.choices?.[0]?.content || '';
+		const markdownContent = data?.choices?.[0]?.message?.content || '';
 		if (!markdownContent) {
 			return {
 				statusCode: 502,
@@ -166,6 +169,8 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 
 		// Convert markdown to HTML
 		const htmlContent = marked(markdownContent);
+		
+		// Enhanced safety: strip script tags and add custom CSS classes
 		const safeHtml = htmlContent
 			.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
 			.replace(/<table/g, '<table class="comparison-table"')
