@@ -153,12 +153,12 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 			return {
 				statusCode: response.status,
 				headers,
-				body: JSON.stringify({ error: err.error?.message || 'OpenAI API error' })
+				body: JSON.stringify({ error: err.error? || 'OpenAI API error' })
 			};
 		}
 
 		const data = await response.json();
-		const markdownContent = data?.choices?.[0]?.message?.content || '';
+		const markdownContent = data?.choices?.[0]?.content || '';
 		if (!markdownContent) {
 			return {
 				statusCode: 502,
