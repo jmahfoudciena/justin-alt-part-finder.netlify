@@ -54,31 +54,42 @@ exports.handler = async (event, context) => {
 			};
 		}
 
-		const prompt = `I need to find alternatives for the electronic component part number: ${partNumber}. 
+		const prompt = `I need to find 5 alternative components for the electronic part number: ${partNumber}. 
 		
-Please provide me with:
-1. A brief description of what this component is and include the package type. Verify the package type explicitly from the manufacturer's datasheet or distributor platforms like Digi-Key or Mouser. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Avoid assumptions and verify the package information and ordering information in the datasheets for most accurate package information.
-2. Please provide 5 alternative part numbers that could serve as replacements for the original component. These alternatives must be:
-	- Sorted by similarity, with the most similar listed first.
-	- Similarity is determined by:
-		- Functionality match: The alternate must perform the same core function as the original (e.g., if the original is a zero-delay buffer with 8 output channels, the alternate must also be a zero-delay buffer with 8 output channels).
-		- Package compatibility: The alternate must use the same package type (e.g., TSSOP-16) or have an identical footprint and pinout.
-	- Functional Matching Rules
-		- Alternates must match the functional category and key specs of the original part. Do not rely solely on distributor or manufacturer category labels, as these may differ. Instead, verify functionality directly from datasheet keywords (e.g., ‘zero delay,’ ‘PLL,’ ‘fanout buffer,’ output count, package type). Include any part that is functionally equivalent, even if grouped under a different product category such as ‘SDRAM buffer,’ ‘clock tree,’ or ‘fanout buffer.. Examples include:
-			- If the original part is a zero-delay buffer with 8 output channels, the alternate must also be a zero-delay buffer with 8 output channels.
-			- If the original part is a 4 Kb SPD EEPROM, the alternate must also be a 4 Kb SPD EEPROM.
-			- If the original part is a 3.3V LVCMOS clock driver, the alternate must also be a 3.3V LVCMOS clock driver.
-			- If the original part is a voltage regulator, the alternate must match the output voltage, current rating, and regulation type (e.g., LDO vs switching).
-
-		- The alternate must use the same package type (e.g., TSSOP-16, SOIC-8, QFN-32).
-			- If no package-compatible alternatives exist, functionally similar parts may be suggested, but must be clearly marked as requiring PCB or firmware changes.
-3. For each alternative, include:
-   - Part number
-   - Brief description of key specifications. Be sure to include the package type and verify it from the manufacturer's datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.
-   - Any notable differences from the original part
-   - Manufacturer name if known. Do not limit to manufacturer of original part.
-   - List if the alternate part matches the functionality and the package of the original part
-4. If no alternatives are package-compatible, explicitly state this and suggest options that are functionally similar but require changes to the PCB or firmware.
+Follow these requirements carefully:
+1. Original Part Verification
+• Provide a short description of the original component (its main function and key specifications).
+• Verify the package type by checking both:
+• The official datasheet (Features, Description, and Ordering Information sections)
+• A distributor listing (such as Digi-Key or Mouser)
+• Clearly cite the datasheet section and/or distributor page where the package information is confirmed.
+• Provide the current unit price from Digi-Key or Mouser (cite distributor).
+2. Alternatives Search
+• Identify 5 alternative components from other reputable semiconductor manufacturers.
+• Confirm availability and lifecycle status using distributor listings.
+• Do not recommend any parts that are obsolete.
+• Acceptable lifecycle statuses: Active, NRND (Not Recommended for New Designs), or Last Time Buy — but clearly disclose if not Active.
+• Each alternative must be functionally identical or very close in purpose (perform the same role, with comparable electrical ranges and interface).
+• Package and functionality are the top priority for determining compatibility.
+• Verify package and key features for each alternate using:
+• The official datasheet (Features, Description, and Ordering Information sections)
+• Distributor listings for lifecycle status, pricing, and availability.
+• Provide the current unit price from Digi-Key or Mouser for each alternative (cite distributor).
+3. Output Format (for each part — original + alternatives)
+• Manufacturer & Part Number
+• Short description (function + key specifications)
+• Package type (with citation from datasheet ordering section and distributor)
+• Lifecycle status (Active, NRND, Last Time Buy — exclude obsolete; cite distributor or manufacturer)
+• Notes on compatibility (e.g., footprint identical, package differs, electrical/software considerations)
+• Price per unit (with source: Digi-Key or Mouser)
+• Link to Digi-Key or Mouser product page
+4. Ranking
+• Rank the 5 alternatives by closeness to the original part using this order of priority:
+- Package match or closest equivalent
+- Functional match (role, features, electrical/spec similarity)
+- Lifecycle status
+- Distributor availability
+- Price competitiveness
 5. Include a **Summary and Conclusion** section:
    - **Summary:** Provide a clear overview of the findings, highlighting whether package-compatible alternatives exist or if PCB modifications are required. Include package-compatible alternatives and functionally similar alternatives. 
    - **Conclusion:** Offer actionable insights, such as whether redesigning the PCB or adapting firmware is necessary and which alternatives are most suitable based on the findings.
