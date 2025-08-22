@@ -85,6 +85,7 @@ Follow these requirements carefully:
 	• Notes on compatibility (e.g., footprint identical, package differs, electrical/software considerations)
 	• Price per unit (with source: Digi-Key or Mouser)
 	• Link to Digi-Key or Mouser product page
+ 		• The link to Digi-Key or Mouser must return a result. If the link did not return a result, do not suggest this part as an alternate.
 4. Ranking
 • Rank the 3 alternatives by closeness to the original part using this order of priority:
 	- Package match or closest equivalent
