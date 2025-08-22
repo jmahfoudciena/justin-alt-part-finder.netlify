@@ -104,7 +104,9 @@ Provide a comprehensive analysis including:
    - Physical Characteristic
    - ${partA} Specification
    - ${partB} Specification
-   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Weight, Operating temperature range
+   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Weight, Operating temperature range. Side-by-side pinout comparison:  
+       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B.  
+       ◦ Explicitly mark mismatches.  
 
 5. **DROP-IN COMPATIBILITY ASSESSMENT**:
    - Overall compatibility score (0-100%)
