@@ -60,55 +60,52 @@ Follow these requirements carefully:
 
 1. Original Part Verification
    • Provide a short description of the original component, including its main function and key specifications.
-   • Verify the package type by checking both:
-       ◦ The official datasheet (Features, Description, Ordering Information sections)
-       ◦ A distributor listing (Digi-Key or Mouser)
-       ◦ Do not invent or assume package. If Supplier Device Package cannot be confirmed on Digi-Key or Mouser, exclude it.
-   • Verify core electrical specifications (e.g., voltage, current, frequency, timing, power) from the datasheet, and explicitly cite the datasheet sections.
-   • Verify the pinout matches the original (from datasheet).
-   • Provide current unit price from Digi-Key or Mouser, with a direct citation/link.
-   • Include the lifecycle status (Active, NRND, Last Time Buy) from the distributor.
+   • Verify the package type using both:
+       ◦ Official datasheet (Features, Description, Ordering Information)
+       ◦ Distributor listing (Digi-Key or Mouser)
+       ◦ Do not assume or invent package. Exclude if package cannot be confirmed.
+   • Verify core electrical specifications (voltage, current, frequency, timing, power) from datasheet, and cite sections.
+   • Verify the pinout matches the original part.
+   • Provide current unit price from Digi-Key or Mouser with citation.
+   • Provide lifecycle status (Active, NRND, Last Time Buy).
 
 2. Alternatives Search
-   • Identify 3 alternative components from reputable semiconductor manufacturers (e.g., TI, Analog Devices, NXP, ON Semi, Microchip). Each must be listed on Digi-Key or Mouser with an orderable Manufacturer Product Number or verified variant/suffix that is functionally equivalent.
-   • Confirm availability and lifecycle status using distributor listings. Acceptable statuses: Active, NRND, or Last Time Buy. Exclude obsolete parts. Clearly disclose if the part is not Active.
-   • Prioritize alternatives that match both **functionality** and **package type**. If a perfect match does not exist, note differences and required adaptations (PCB, firmware, or electrical).
-   • Verify:
-       ◦ Core electrical specs from datasheet (voltage, current, frequency, timing)
-       ◦ Pinout compatibility
-       ◦ Package type (cite datasheet Ordering Info section)
-       ◦ Functionality keywords (e.g., PLL, zero delay, fanout buffer, output count)
-   • Provide current unit price from Digi-Key or Mouser with citation/link.
-   • Include any minor differences or deviations from the original (footprint, electrical range, interface, software considerations).
-   • Include confidence level in suitability (High / Medium / Low).
+   • Identify 3 alternative components from reputable semiconductor manufacturers (TI, ADI, NXP, ON Semi, Microchip, etc.).
+   • Prioritize alternatives that are **functionally equivalent and package-compatible** with the original part.
+   • Confirm availability and lifecycle using Digi-Key or Mouser. Acceptable: Active, NRND, Last Time Buy. Exclude obsolete parts.
+   • Verify package type, pinout, and core electrical specs from datasheet.
+   • Verify functionality using datasheet keywords (e.g., PLL, zero delay, fanout buffer, output count, interface type, voltage/current range).
+   • Provide price per unit with distributor citation.
+   • Include any differences or deviations from the original (footprint, electrical, interface, software considerations).
+   • Include confidence level (High / Medium / Low).
 
-3. Output Format (for original + alternatives)
+3. Output Format
    • Manufacturer & Part Number (include variant/suffix if used)
-   • Short description (function + key specifications)
-   • Core electrical specifications (voltage, current, frequency, timing)
-   • Package type (with datasheet and distributor citations)
-   • Pinout compatibility confirmation
-   • Lifecycle status (Active, NRND, Last Time Buy — cite distributor)
-   • Notes on compatibility (footprint identical, package differs, electrical/software considerations)
-   • Price per unit (with source link)
-   • Confidence level (High / Medium / Low)
-   • Any deviations from original
+   • Short description (function + key specs)
+   • Core electrical specifications
+   • Package type (with datasheet & distributor citation)
+   • Pinout compatibility
+   • Lifecycle status (cite distributor)
+   • Notes on compatibility
+   • Price per unit (with link)
+   • Confidence level
+   • Deviations from original
 
 4. Ranking
    • Rank the 3 alternatives by closeness to the original part using these priorities:
-       1. Package match or closest equivalent
-       2. Functional match (role, features, electrical/spec similarity)
+       1. Package match
+       2. Functional match
        3. Lifecycle status
        4. Distributor availability
        5. Price competitiveness
-   • Include a brief rationale for ranking.
+   • Include rationale for ranking.
 
-5. Summary and Conclusion
-   • Summary: Provide a clear overview of findings, highlighting whether package-compatible alternatives exist, or if PCB/firmware adaptations are required.
-   • Conclusion: Offer actionable insights on whether redesigning PCB, adapting firmware, or minor adjustments are necessary. Recommend the most suitable alternatives based on package, functionality, lifecycle, and availability.
+5. Summary & Conclusion
+   • Provide a clear overview of findings, highlighting whether package-compatible alternatives exist or if PCB/firmware adaptations are required.
+   • Recommend the most suitable alternatives with reasoning.
    • Include date of availability verification for all parts.
 
-Ensure all information is accurate, cited from official datasheets or distributor listings, and avoid inventing part numbers, packages, or specifications.`;
+Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Always prioritize **functionally equivalent, package-compatible alternates** when available.`;
 
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
