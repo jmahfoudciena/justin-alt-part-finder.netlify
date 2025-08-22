@@ -108,7 +108,7 @@ Provide a comprehensive analysis including:
    - ${partA} Specification
    - ${partB} Specification
    Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Operating temperature range. Side-by-side pinout comparison:  
-       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B.  
+       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B. List all pins.  
        ◦ Explicitly mark mismatches.  
 	   ◦ This information should be taken out of manufactuer datasheet . Do not assume. Never invent. 
 
@@ -144,7 +144,7 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 					{ role: 'user', content: userPrompt }
 				],
 				max_tokens: 4000,
-				temperature: 0.1
+				temperature: 0.2
 			})
 		});
 
