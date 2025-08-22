@@ -108,9 +108,16 @@ Follow these requirements carefully:
    • Explicitly note differences in functional blocks that may affect compatibility.
    • Recommend the most suitable alternatives with reasoning.
    • Include date of availability verification for all parts.
+   
+IMPORTANT: Make each alternative visually distinct and easy to separate. Use clear section breaks, numbered lists, or visual separators between each alternative. Consider using:
+- Clear numbered sections (1., 2., 3.)
+- Horizontal rules (---) between alternatives
+- Distinct headings for each alternative
+- Bullet points with clear spacing
 
 Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
-		
+
+
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
 			headers: {
