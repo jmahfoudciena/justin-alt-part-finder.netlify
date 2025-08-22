@@ -59,55 +59,56 @@ const prompt = `I need to find 3 alternative components for the electronic part 
 Follow these requirements carefully:
 
 1. Original Part Verification
-   • Provide a short description of the original component, including its main function and key specifications.
-   • Verify the package type using both:
-       ◦ Official datasheet (Features, Description, Ordering Information)
-       ◦ Distributor listing (Digi-Key or Mouser)
-       ◦ Do not assume or invent package. Exclude if package cannot be confirmed.
-   • Verify core electrical specifications (voltage, current, frequency, timing, power) from datasheet, and cite sections.
-   • Verify the pinout matches the original part.
-   • Analyze the original part's block diagram and provide a textual summary of its functional blocks (e.g., PLL, MUX, Output Buffers, ADC, I2C interface). Cite datasheet section.
-   • Provide current unit price from Digi-Key or Mouser with citation.
-   • Provide lifecycle status (Active, NRND, Last Time Buy).
-
+• Short Description: Provide a concise summary of the original component’s function and key specifications.
+• Package Type Verification:
+  - Confirm using:
+    ◦ Official datasheet (Features, Description, Ordering Information)
+    ◦ Distributor listings (e.g., Digi-Key, Mouser)
+  - Do not assume or invent package type. Exclude if package cannot be confirmed.
+• Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
+• Pinout Verification: Confirm pinout from datasheet.
+• Block Diagram Summary: Analyze internal functional blocks (e.g., PLL, MUX, Buffers, ADC, interfaces). Cite datasheet section.
+• Price & Lifecycle: Provide current unit price from Digi-Key or Mouser. Confirm lifecycle status (Active, NRND, Last Time Buy).
 2. Alternatives Search
-   • Identify 3 alternative components from reputable semiconductor manufacturers (TI, ADI, NXP, ON Semi, Microchip, etc.).
-   • Prioritize alternatives that are functionally equivalent and package-compatible.
-   • Confirm availability and lifecycle using Digi-Key or Mouser. Acceptable: Active, NRND, Last Time Buy. Exclude obsolete parts.
-   • Verify package type, pinout, and core electrical specs from datasheet.
-   • Analyze the block diagrams of each alternate (or textual functional description from datasheet) and compare to the original part. Highlight similarities and differences in functional blocks.
-   • Verify functionality using datasheet keywords (PLL, zero delay, fanout buffer, output count, interface type, voltage/current range).
-   • Provide price per unit with distributor citation.
-   • Include any differences or deviations from the original (footprint, electrical, interface, software considerations).
-   • Include confidence level (High / Medium / Low).
-
+• Identify 3 Alternatives:
+  - From reputable manufacturers (e.g., TI, ADI, NXP, ON Semi, Microchip)
+  - Prioritize parts that are functionally equivalent and package-compatible
+• Industry-Preferred Equivalents: Always include known industry-preferred equivalents if they meet functional and package criteria.
+• Package Variant Awareness: Check if multiple package variants exist (e.g., SOIC, TSSOP). Include compatible variants even if not listed in the original query.
+• Verification Requirements:
+  - Confirm lifecycle status (Active, NRND, Last Time Buy)
+  - Verify package type, pinout, and core electrical specs from datasheet
+  - Analyze block diagrams or functional descriptions and compare to original
+  - Confirm functionality using datasheet keywords (PLL, zero delay, fanout buffer, output count, interface type, voltage/current range)
+  - Provide price per unit with distributor citation
+  - Note any differences (footprint, electrical, interface, software)
+  - Include confidence level (High / Medium / Low)
 3. Output Format
-   • Manufacturer & Part Number (include variant/suffix if used)
-   • Short description (function + key specs)
-   • Core electrical specifications
-   • Package type (with datasheet & distributor citation)
-   • Pinout compatibility
-   • Block diagram functional summary
-   • Lifecycle status (cite distributor)
-   • Notes on compatibility
-   • Price per unit (with link)
-   • Confidence level
-   • Deviations from original
-
+For each alternative, include:
+• Manufacturer & Part Number (include variant/suffix if used)
+• Short Description (function + key specs)
+• Package Type (with datasheet & distributor citation)
+• Pinout Compatibility
+• Block Diagram Functional Summary
+• Lifecycle Status (cite distributor)
+• Notes on Compatibility
+• Price per Unit (with link)
+• Confidence Level
+• Deviations from Original
 4. Ranking
-   • Rank the 3 alternatives by closeness to the original part using these priorities:
-       1. Package match
-       2. Functional match, including block diagram similarity
-       3. Lifecycle status
-       4. Distributor availability
-       5. Price competitiveness
-   • Include rationale for ranking.
-
+Rank the 3 alternatives by closeness to the original part using these priorities:
+1. Package Match
+2. Functional Match, including block diagram similarity
+3. Lifecycle Status
+4. Distributor Availability
+5. Price Competitiveness
+If a verified preferred alternate exists, list it first and explain any minor deviations. Include rationale for ranking.
 5. Summary & Conclusion
-   • Provide a clear overview of findings, highlighting whether package-compatible alternatives exist or if PCB/firmware adaptations are required.
-   • Explicitly note differences in functional blocks that may affect compatibility.
-   • Recommend the most suitable alternatives with reasoning.
-   • Include date of availability verification for all parts.
+• Provide a clear overview of findings.
+• Highlight whether package-compatible alternatives exist or if PCB/firmware adaptations are required.
+• Explicitly note differences in functional blocks that may affect compatibility.
+• Recommend the most suitable alternatives with reasoning.
+• Include date of availability verification for all parts.
    
 IMPORTANT: Make each alternative visually distinct and easy to separate. Use clear section breaks, numbered lists, or visual separators between each alternative. Consider using:
 - Clear numbered sections (1., 2., 3.)
