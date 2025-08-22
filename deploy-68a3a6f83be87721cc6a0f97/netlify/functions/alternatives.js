@@ -71,6 +71,7 @@ Follow these requirements carefully:
 	• Acceptable lifecycle statuses: Active, NRND (Not Recommended for New Designs), or Last Time Buy — but clearly disclose if not Active.
 	• Each alternative must be functionally identical or very close in purpose (perform the same role, with comparable electrical ranges and interface).
  		• Alternates must match the functional category and key specs of the original part. Do not rely solely on distributor or manufacturer category labels, as these may differ. Instead, verify functionality directly from datasheet keywords. Include any part that is functionally equivalent, even if grouped under a different product category.
+		• When evaluating alternates, prioritize parts with the same functionality and the same package type (as verified in the datasheet Ordering Information and Description sections). Such parts must always be included, even if the distributor does not explicitly list them as alternates.
 	• Package and functionality are the top priority for determining compatibility.
 	• Verify package and key features for each alternate using:
 		• The official datasheet (Features, Description, and Ordering Information sections)
