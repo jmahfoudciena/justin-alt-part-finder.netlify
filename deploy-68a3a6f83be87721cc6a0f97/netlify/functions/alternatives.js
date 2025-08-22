@@ -66,15 +66,17 @@ Follow these requirements carefully:
        ◦ Do not assume or invent package. Exclude if package cannot be confirmed.
    • Verify core electrical specifications (voltage, current, frequency, timing, power) from datasheet, and cite sections.
    • Verify the pinout matches the original part.
+   • Analyze the original part's block diagram and provide a textual summary of its functional blocks (e.g., PLL, MUX, Output Buffers, ADC, I2C interface). Cite datasheet section.
    • Provide current unit price from Digi-Key or Mouser with citation.
    • Provide lifecycle status (Active, NRND, Last Time Buy).
 
 2. Alternatives Search
    • Identify 3 alternative components from reputable semiconductor manufacturers (TI, ADI, NXP, ON Semi, Microchip, etc.).
-   • Prioritize alternatives that are **functionally equivalent and package-compatible** with the original part.
+   • Prioritize alternatives that are functionally equivalent and package-compatible.
    • Confirm availability and lifecycle using Digi-Key or Mouser. Acceptable: Active, NRND, Last Time Buy. Exclude obsolete parts.
    • Verify package type, pinout, and core electrical specs from datasheet.
-   • Verify functionality using datasheet keywords (e.g., PLL, zero delay, fanout buffer, output count, interface type, voltage/current range).
+   • Analyze the block diagrams of each alternate (or textual functional description from datasheet) and compare to the original part. Highlight similarities and differences in functional blocks.
+   • Verify functionality using datasheet keywords (PLL, zero delay, fanout buffer, output count, interface type, voltage/current range).
    • Provide price per unit with distributor citation.
    • Include any differences or deviations from the original (footprint, electrical, interface, software considerations).
    • Include confidence level (High / Medium / Low).
@@ -85,6 +87,7 @@ Follow these requirements carefully:
    • Core electrical specifications
    • Package type (with datasheet & distributor citation)
    • Pinout compatibility
+   • Block diagram functional summary
    • Lifecycle status (cite distributor)
    • Notes on compatibility
    • Price per unit (with link)
@@ -94,7 +97,7 @@ Follow these requirements carefully:
 4. Ranking
    • Rank the 3 alternatives by closeness to the original part using these priorities:
        1. Package match
-       2. Functional match
+       2. Functional match, including block diagram similarity
        3. Lifecycle status
        4. Distributor availability
        5. Price competitiveness
@@ -102,11 +105,12 @@ Follow these requirements carefully:
 
 5. Summary & Conclusion
    • Provide a clear overview of findings, highlighting whether package-compatible alternatives exist or if PCB/firmware adaptations are required.
+   • Explicitly note differences in functional blocks that may affect compatibility.
    • Recommend the most suitable alternatives with reasoning.
    • Include date of availability verification for all parts.
 
-Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Always prioritize **functionally equivalent, package-compatible alternates** when available.`;
-
+Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
+		
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
 			headers: {
