@@ -65,8 +65,8 @@ Follow these requirements carefully:
 	• Clearly cite the datasheet section and/or distributor page where the package information is confirmed.
 	• Provide the current unit price from Digi-Key or Mouser (cite distributor).
 2. Alternatives Search
-	• Identify 5 alternative components from other reputable semiconductor manufacturers.
-	• Confirm availability and lifecycle status using distributor listings.
+	• Identify 5 alternative components from other reputable semiconductor manufacturers. Alternate component must be found on Digi-Key or Mouser.
+	• Confirm availability and lifecycle status using distributor listings (only use Digi-Key or Mouser).
 	• Do not recommend any parts that are obsolete.
 	• Acceptable lifecycle statuses: Active, NRND (Not Recommended for New Designs), or Last Time Buy — but clearly disclose if not Active.
 	• Each alternative must be functionally identical or very close in purpose (perform the same role, with comparable electrical ranges and interface).
