@@ -120,7 +120,7 @@ Ensure all information is accurate, cited from datasheets or distributor listing
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-4.1',
+				model: 'gpt-4o',
 				messages: [
 					{
 						role: 'system',
