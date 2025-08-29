@@ -67,43 +67,80 @@ app.post('/api/alternatives', async (req, res) => {
 			return res.status(400).json({ error: 'Part number is required' });
 		}
 
-		const prompt = `I need to find alternatives for the electronic component part number: ${partNumber}. 
-		
-Please provide me with:
-1. A brief description of what this component is and include the package type. Verify the package type explicitly from the manufacturer's datasheet or distributor platforms like Digi-Key or Mouser. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Avoid assumptions and verify the package information and ordering information in the datasheets for most accurate package information.
-2. Please provide 5 alternative part numbers that could serve as replacements for the original component. These alternatives must be:
-	- Sorted by similarity, with the most similar listed first.
-	- Similarity is determined by:
-		- Functionality match: The alternate must perform the same core function as the original (e.g., if the original is a zero-delay buffer with 8 output channels, the alternate must also be a zero-delay buffer with 8 output channels).
-		- Package compatibility: The alternate must use the same package type (e.g., TSSOP-16) or have an identical footprint and pinout.
-	- Functional Matching Rules
-		- Alternates must match the functional category and key specs of the original part. Do not rely solely on distributor or manufacturer category labels, as these may differ. Instead, verify functionality directly from datasheet keywords (e.g., ‘zero delay,’ ‘PLL,’ ‘fanout buffer,’ output count, package type). Include any part that is functionally equivalent, even if grouped under a different product category such as ‘SDRAM buffer,’ ‘clock tree,’ or ‘fanout buffer.. Examples include:
-			- If the original part is a zero-delay buffer with 8 output channels, the alternate must also be a zero-delay buffer with 8 output channels.
-			- If the original part is a 4 Kb SPD EEPROM, the alternate must also be a 4 Kb SPD EEPROM.
-			- If the original part is a 3.3V LVCMOS clock driver, the alternate must also be a 3.3V LVCMOS clock driver.
-			- If the original part is a voltage regulator, the alternate must match the output voltage, current rating, and regulation type (e.g., LDO vs switching).
+const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
 
-		- The alternate must use the same package type (e.g., TSSOP-16, SOIC-8, QFN-32).
-			- If no package-compatible alternatives exist, functionally similar parts may be suggested, but must be clearly marked as requiring PCB or firmware changes.
+Follow these requirements carefully:
+1. Original Part Verification
+• Short Description: Provide a concise summary of the original component’s function and key specifications.
+• Package Type Verification:
+  - Package Type Verification Rules
+	1. Primary Source – Datasheet Check
+		- Always start with the manufacturer’s datasheet for the exact part number.
+		- Decode the ordering code to confirm:
+			- Package type (e.g., QFN-32, SOIC-8, BGA-96)
+			- Pin count
+			- Mechanical dimensions
+		- If the datasheet does not explicitly list package details, mark as unverified and stop.
+	2. Secondary Source – Distributor Cross-Check
+		- Use at least two authorized distributors (Digi-Key, Mouser, Arrow, Avnet, etc.).
+		- On distributor product pages, verify both fields:
+			- Package / Case
+			- Supplier Device Package
+		- These must exactly match the datasheet.
+	3. Consistency Rules
+		- Pin count in distributor listings must match datasheet pin count.
+		- Do not assume that parts with the same prefix (family parts) have the same package.
+		- Only use ordering code + datasheet confirmation, never inference.
+	4. Fail Condition
+		- If datasheet package cannot be confirmed or distributors show inconsistent/unknown packages, return:
+		- Result: Package type cannot be confirmed. Exclude this part.
+	IMPORTANT: Never invent or guess a package type.
+• Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
+• Pinout Verification: Confirm pinout from datasheet.
+• Block Diagram Summary: Analyze internal functional blocks (e.g., PLL, MUX, Buffers, ADC, interfaces). Cite datasheet section.
+• Price & Lifecycle: Provide current unit price from Digi-Key or Mouser. Confirm lifecycle status (Active, NRND, Last Time Buy).
+2. Alternatives Search
+• Identify 3 Alternatives:
+  - From reputable manufacturers (e.g., TI, ADI, NXP, ON Semi, Microchip)
+  - Prioritize parts that are functionally equivalent and package-compatible
+• Industry-Preferred Equivalents: Always include known industry-preferred equivalents if they meet functional and package criteria.
+• Package Variant Awareness: Check if multiple package variants exist (e.g., SOIC, TSSOP). Include compatible variants even if not listed in the original query.
+• Verification Requirements:
+  - Confirm lifecycle status (Active, NRND, Last Time Buy)
+  - Verify package type, pinout, and core electrical specs from datasheet
+  - Analyze block diagrams or functional descriptions and compare to original
+  - Confirm functionality using datasheet keywords (PLL, zero delay, fanout buffer, output count, interface type, voltage/current range)
+  - Provide price per unit with distributor citation
+  - Note any differences (footprint, electrical, interface, software)
+  - Include confidence level (High / Medium / Low)
 3. For each alternative, include:
    - Part number
    - Brief description of key specifications. Be sure to include the package type and verify it from the manufacturer's datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.
    - Any notable differences from the original part
    - Manufacturer name if known. Do not limit to manufacturer of original part.
-   - List if the alternate part matches the functionality and the package of the original part
-4. If no alternatives are package-compatible, explicitly state this and suggest options that are functionally similar but require changes to the PCB or firmware.
-5. Include a **Summary and Conclusion** section:
-   - **Summary:** Provide a clear overview of the findings, highlighting whether package-compatible alternatives exist or if PCB modifications are required. Include package-compatible alternatives and functionally similar alternatives. 
-   - **Conclusion:** Offer actionable insights, such as whether redesigning the PCB or adapting firmware is necessary and which alternatives are most suitable based on the findings.
-
-
+   - List if the alternate part matches the functionality and the package of the original part• Price per Unit (with link)
+4. Ranking
+Rank the 3 alternatives by closeness to the original part using these priorities:
+1. Package Match
+2. Functional Match, including block diagram similarity
+3. Lifecycle Status
+4. Distributor Availability
+5. Price Competitiveness
+If a verified preferred alternate exists, list it first and explain any minor deviations. Include rationale for ranking.
+5. Summary & Conclusion
+• Provide a clear overview of findings.
+• Highlight whether package-compatible alternatives exist or if PCB/firmware adaptations are required.
+• Explicitly note differences in functional blocks that may affect compatibility.
+• Recommend the most suitable alternatives with reasoning.
+• Include date of availability verification for all parts.
+   
 IMPORTANT: Make each alternative visually distinct and easy to separate. Use clear section breaks, numbered lists, or visual separators between each alternative. Consider using:
 - Clear numbered sections (1., 2., 3.)
 - Horizontal rules (---) between alternatives
 - Distinct headings for each alternative
 - Bullet points with clear spacing
 
-Format the response in clear markdown with proper headings, bullet points, and visual separation between alternatives.`;
+Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
 
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
