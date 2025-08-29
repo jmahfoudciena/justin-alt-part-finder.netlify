@@ -57,15 +57,31 @@ exports.handler = async (event, context) => {
 const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
 
 Follow these requirements carefully:
-
 1. Original Part Verification
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
 • Package Type Verification:
-  - Confirm using:
-    ◦ Always start with the manufacturer’s datasheet for the exact part number, decode the ordering code to confirm package type, pin count, and dimensions, then cross‑verify with at least two distributor listings before searching for alternatives
-    ◦ Never rely on memory or similar family parts as a shortcut — same prefix does not equal same package. Manufacturer ordering code is your first checkpoint. Pin count check in the datasheet is your second checkpoint. Distributor filter by exact package type/pin count is your third checkpoint
-	◦ On distributor product pages: Look at "Package / Case" Look at "Supplier Device Package" Both must match the datasheet.
-  - Do not assume or invent package type. Exclude if package cannot be confirmed.
+  - Package Type Verification Rules
+	1. Primary Source – Datasheet Check
+		- Always start with the manufacturer’s datasheet for the exact part number.
+		- Decode the ordering code to confirm:
+			- Package type (e.g., QFN-32, SOIC-8, BGA-96)
+			- Pin count
+			- Mechanical dimensions
+		- If the datasheet does not explicitly list package details, mark as unverified and stop.
+	2. Secondary Source – Distributor Cross-Check
+		- Use at least two authorized distributors (Digi-Key, Mouser, Arrow, Avnet, etc.).
+		- On distributor product pages, verify both fields:
+			- Package / Case
+			- Supplier Device Package
+		- These must exactly match the datasheet.
+	3. Consistency Rules
+		- Pin count in distributor listings must match datasheet pin count.
+		- Do not assume that parts with the same prefix (family parts) have the same package.
+		- Only use ordering code + datasheet confirmation, never inference.
+	4. Fail Condition
+		- If datasheet package cannot be confirmed or distributors show inconsistent/unknown packages, return:
+		- Result: Package type cannot be confirmed. Exclude this part.
+	IMPORTANT: Never invent or guess a package type.
 • Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
 • Pinout Verification: Confirm pinout from datasheet.
 • Block Diagram Summary: Analyze internal functional blocks (e.g., PLL, MUX, Buffers, ADC, interfaces). Cite datasheet section.
