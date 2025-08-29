@@ -221,7 +221,7 @@ app.post('/api/compare', async (req, res) => {
 			'- Be extremely thorough, accurate, and conservative in your analysis. When in doubt, state the uncertainty clearly.'
 		].join(' ');
 
-		const userPrompt = `Compare these two electronic components: "${partA}" vs "${partB}".
+const userPrompt = `Compare these two electronic components: "${partA}" vs "${partB}".
 
 Provide a comprehensive analysis including:
 
@@ -231,6 +231,9 @@ Provide a comprehensive analysis including:
    - ${partB} Value
    - Difference (highlight in bold if significant)
    - Impact Assessment
+   - Function and application of each part.  
+   - High-level block diagram summary (if available).  
+   - Notable differences in intended use.  
 
 2. **ELECTRICAL SPECIFICATIONS** - Create a markdown table with these columns:
    - Specification
@@ -249,7 +252,10 @@ Provide a comprehensive analysis including:
    - Physical Characteristic
    - ${partA} Specification
    - ${partB} Specification
-   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Weight, Operating temperature range
+   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Operating temperature range. Side-by-side pinout comparison:  
+       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B. List all pins.  
+       ◦ Explicitly mark mismatches.  
+	   ◦ This information should be taken out of manufactuer datasheet . Do not assume. Never invent. 
 
 5. **DROP-IN COMPATIBILITY ASSESSMENT**:
    - Overall compatibility score (0-100%)
