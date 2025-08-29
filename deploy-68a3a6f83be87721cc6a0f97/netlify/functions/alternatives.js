@@ -62,6 +62,7 @@ Follow these requirements carefully:
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
 • Package Type Verification:
   - Confirm using:
+    ◦ Always start with the manufacturer’s datasheet for the exact part number, decode the ordering code to confirm package type, pin count, and dimensions, then cross‑verify with at least two distributor listings before searching for alternatives
     ◦ Never rely on memory or similar family parts as a shortcut — same prefix does not equal same package. Manufacturer ordering code is your first checkpoint. Pin count check in the datasheet is your second checkpoint. Distributor filter by exact package type/pin count is your third checkpoint
 	◦ On distributor product pages: Look at "Package / Case" Look at "Supplier Device Package" Both must match the datasheet.
   - Do not assume or invent package type. Exclude if package cannot be confirmed.
