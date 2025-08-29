@@ -63,6 +63,7 @@ Follow these requirements carefully:
 • Package Type Verification:
   - Confirm using:
     ◦ Never rely on memory or similar family parts as a shortcut — same prefix does not equal same package. Manufacturer ordering code is your first checkpoint. Pin count check in the datasheet is your second checkpoint. Distributor filter by exact package type/pin count is your third checkpoint
+	◦ On distributor product pages: Look at "Package / Case" Look at "Supplier Device Package" Both must match the datasheet.
   - Do not assume or invent package type. Exclude if package cannot be confirmed.
 • Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
 • Pinout Verification: Confirm pinout from datasheet.
