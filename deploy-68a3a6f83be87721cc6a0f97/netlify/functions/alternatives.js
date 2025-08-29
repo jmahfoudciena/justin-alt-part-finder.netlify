@@ -62,8 +62,7 @@ Follow these requirements carefully:
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
 • Package Type Verification:
   - Confirm using:
-    ◦ Official datasheet (Features, Description, Ordering Information)
-    ◦ Distributor listings under the Package / Case section in Product Attributes (e.g., Digi-Key)
+    ◦ Never rely on memory or similar family parts as a shortcut — same prefix does not equal same package. Manufacturer ordering code is your first checkpoint. Pin count check in the datasheet is your second checkpoint. Distributor filter by exact package type/pin count is your third checkpoint
   - Do not assume or invent package type. Exclude if package cannot be confirmed.
 • Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
 • Pinout Verification: Confirm pinout from datasheet.
