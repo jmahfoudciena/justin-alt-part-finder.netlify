@@ -120,7 +120,7 @@ Ensure all information is accurate, cited from datasheets or distributor listing
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-4o',
+				model: 'gpt-5',
 				messages: [
 					{
 						role: 'system',
@@ -131,7 +131,7 @@ Ensure all information is accurate, cited from datasheets or distributor listing
 						content: prompt
 					}
 				],
-				max_tokens: 16384
+				max_completion_tokens: 16384
 			})
 		});
 
