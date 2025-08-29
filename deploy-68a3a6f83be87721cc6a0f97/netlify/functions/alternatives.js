@@ -63,7 +63,7 @@ Follow these requirements carefully:
 • Package Type Verification:
   - Confirm using:
     ◦ Official datasheet (Features, Description, Ordering Information)
-    ◦ Distributor listings (e.g., Digi-Key, Mouser)
+    ◦ Distributor listings under the Package / Case section in Product Attributes (e.g., Digi-Key)
   - Do not assume or invent package type. Exclude if package cannot be confirmed.
 • Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
 • Pinout Verification: Confirm pinout from datasheet.
