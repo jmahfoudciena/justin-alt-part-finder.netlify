@@ -137,7 +137,7 @@ Ensure all information is accurate, cited from datasheets or distributor listing
 						content: prompt
 					}
 				],
-				max_tokens: 8000
+				max_tokens: 4096
 			})
 		});
 
