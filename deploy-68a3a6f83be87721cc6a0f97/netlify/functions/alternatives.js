@@ -60,22 +60,14 @@ Follow these requirements carefully:
 1. Original Part Verification
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
 • Package Type Verification (STRICT):
-  - You must confirm the package type using BOTH:
-    1. Manufacturer’s Datasheet (Primary Source)
-       - Locate the ordering information table or packaging section for the **exact part number**.
-       - Extract the package type (e.g., QFN-32, SOIC-8, BGA-96), pin count, and dimensions.
-       - Cite the exact section/table/page.
-    2. Authorized Distributors (Secondary Source)
-       - Use at least two (Digi-Key, Mouser, Arrow, Avnet, etc.).
-       - Verify BOTH “Package / Case” AND “Supplier Device Package.”
-       - These must exactly match the datasheet. No assumptions.
+  - You must confirm the package type using:
+		Authorized Distributors 
+        - Use Digi-Key
+       	- Verify BOTH “Package / Case” AND “Supplier Device Package.”
+       	- Extract the package type, pin count, and dimensions.
+ No assumptions.
   - Consistency Rules:
-    - Pin count must match across datasheet + distributors.
-    - Do not assume family parts share the same package; only confirm from ordering code.
-    - If distributor data conflicts with datasheet → datasheet takes priority.
-  - Fail Condition (MANDATORY):
-    - If package type cannot be confirmed from the datasheet ordering code **or** distributors list conflicting/unknown packages:
-      - Return: **“Package type cannot be confirmed. Exclude this part.”**
+    - Do not assume family parts share the same package; only confirm from “Package / Case” AND “Supplier Device Package”.
     - Do not invent, infer, or guess.
 • Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
 • Pinout Verification: Confirm pinout from datasheet.
