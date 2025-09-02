@@ -4,7 +4,7 @@ node_bundler = "esbuild"
 
 [[redirects]]
 from = "/api/alternatives"
-to = "/.netlify/functions/alternatives"
+to = "/.netlify/functions/alternatives-background"
 status = 200
 force = false
 
