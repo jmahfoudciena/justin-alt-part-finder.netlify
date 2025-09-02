@@ -61,8 +61,9 @@ Follow these requirements carefully:
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
 • Package Type Verification:
   - You must confirm the package type using:
-		Octopart 
-       	- Take this information from the "descriptions" section
+		Authorized Distributors 
+        - Use Digi-Key
+       	- Verify BOTH “Package / Case” AND “Supplier Device Package.”
        	- Extract the package type, pin count, and dimensions.
  No assumptions.
   - Consistency Rules:
