@@ -8,19 +8,12 @@
     "dev": "netlify dev"
   },
   "dependencies": {
-    "marked": "^9.1.6",
-    "node-fetch": "^2.6.9"
+    "marked": "^9.1.6"
   },
   "devDependencies": {
     "netlify-cli": "^17.10.1"
   },
-  "keywords": [
-    "electronics",
-    "parts",
-    "alternatives",
-    "ai",
-    "netlify"
-  ],
+  "keywords": ["electronics", "parts", "alternatives", "ai", "netlify"],
   "author": "Your Company",
   "license": "MIT"
 }
