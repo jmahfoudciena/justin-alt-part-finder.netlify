@@ -59,29 +59,24 @@ const prompt = `I need to find 3 alternative components for the electronic part 
 Follow these requirements carefully:
 1. Original Part Verification
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
-• Package Type Verification:
-  - Package Type Verification Rules
-	1. Primary Source – Datasheet Check
-		- Always start with the manufacturer’s datasheet for the exact part number.
-		- Decode the ordering code to confirm:
-			- Package type (e.g., QFN-32, SOIC-8, BGA-96)
-			- Pin count
-			- Mechanical dimensions
-		- If the datasheet does not explicitly list package details, mark as unverified and stop.
-	2. Secondary Source – Distributor Cross-Check
-		- Use at least two authorized distributors (Digi-Key, Mouser, Arrow, Avnet, etc.).
-		- On distributor product pages, verify both fields:
-			- Package / Case
-			- Supplier Device Package
-		- These must exactly match the datasheet.
-	3. Consistency Rules
-		- Pin count in distributor listings must match datasheet pin count.
-		- Do not assume that parts with the same prefix (family parts) have the same package.
-		- Only use ordering code + datasheet confirmation, never inference.
-	4. Fail Condition
-		- If datasheet package cannot be confirmed or distributors show inconsistent/unknown packages, return:
-		- Result: Package type cannot be confirmed. Exclude this part.
-	IMPORTANT: Never invent or guess a package type.
+• Package Type Verification (STRICT):
+  - You must confirm the package type using BOTH:
+    1. Manufacturer’s Datasheet (Primary Source)
+       - Locate the ordering information table or packaging section for the **exact part number**.
+       - Extract the package type (e.g., QFN-32, SOIC-8, BGA-96), pin count, and dimensions.
+       - Cite the exact section/table/page.
+    2. Authorized Distributors (Secondary Source)
+       - Use at least two (Digi-Key, Mouser, Arrow, Avnet, etc.).
+       - Verify BOTH “Package / Case” AND “Supplier Device Package.”
+       - These must exactly match the datasheet. No assumptions.
+  - Consistency Rules:
+    - Pin count must match across datasheet + distributors.
+    - Do not assume family parts share the same package; only confirm from ordering code.
+    - If distributor data conflicts with datasheet → datasheet takes priority.
+  - Fail Condition (MANDATORY):
+    - If package type cannot be confirmed from the datasheet ordering code **or** distributors list conflicting/unknown packages:
+      - Return: **“Package type cannot be confirmed. Exclude this part.”**
+    - Do not invent, infer, or guess.
 • Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
 • Pinout Verification: Confirm pinout from datasheet.
 • Block Diagram Summary: Analyze internal functional blocks (e.g., PLL, MUX, Buffers, ADC, interfaces). Cite datasheet section.
@@ -105,7 +100,9 @@ Follow these requirements carefully:
    - Brief description of key specifications. Be sure to include the package type and verify it from the manufacturer's datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.
    - Any notable differences from the original part
    - Manufacturer name if known. Do not limit to manufacturer of original part.
-   - List if the alternate part matches the functionality and the package of the original part• Price per Unit (with link)
+   - List if the alternate part matches the functionality and the package of the original part
+   - Price per Unit (with link)
+   - Confirmed Package Type (from datasheet ordering code + at least one distributor listing). Cite exact table/section or distributor field. If not verifiable, state “Package type cannot be confirmed” and exclude.
 4. Ranking
 Rank the 3 alternatives by closeness to the original part using these priorities:
 1. Package Match
