@@ -130,7 +130,7 @@ Ensure all information is accurate, cited from datasheets or distributor listing
 				messages: [
 					{
 						role: 'system',
-						content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications. The alternatives should be package and footprint compatible with similar electrical and timing specifications and if applicable, firmware/register similarities.'
+						content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.'
 					},
 					{
 						role: 'user',
