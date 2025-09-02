@@ -77,6 +77,7 @@ Follow these requirements carefully:
 • Identify 3 Alternatives:
   - From reputable manufacturers (e.g., TI, ADI, NXP, ON Semi, Microchip)
   - Prioritize parts that are functionally equivalent and package-compatible
+  - Hint: Sometimes alternates will have similar part numbers. For instance, STTS2004B2DN3F is alternate for AT30TSE004A. Both have 004 in their part number. Use this information to find alternates. 
 • Industry-Preferred Equivalents: Always include known industry-preferred equivalents if they meet functional and package criteria.
 • Package Variant Awareness: Check if multiple package variants exist (e.g., SOIC, TSSOP). Include compatible variants even if not listed in the original query.
 • Verification Requirements:
