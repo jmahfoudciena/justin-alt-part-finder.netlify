@@ -1,60 +1,131 @@
+const fetch = require('node-fetch');
 const { marked } = require('marked');
 
-// Configure marked for security and proper rendering
+// Configure marked
 marked.setOptions({
-	breaks: true,
-	gfm: true,
-	sanitize: false,
-	headerIds: true,
-	mangle: false
+  breaks: true,
+  gfm: true,
+  sanitize: false,
+  headerIds: true,
+  mangle: false
 });
 
 exports.handler = async (event, context) => {
-	// Handle CORS
-	const headers = {
-		'Access-Control-Allow-Origin': '*',
-		'Access-Control-Allow-Headers': 'Content-Type',
-		'Access-Control-Allow-Methods': 'POST, OPTIONS'
-	};
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  };
 
-	// Handle OPTIONS request for CORS preflight
-	if (event.httpMethod === 'OPTIONS') {
-		return {
-			statusCode: 200,
-			headers,
-			body: ''
-		};
-	}
+  // Handle OPTIONS (CORS preflight)
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
 
-	// Only allow POST requests
-	if (event.httpMethod !== 'POST') {
-		return {
-			statusCode: 405,
-			headers,
-			body: JSON.stringify({ error: 'Method not allowed' })
-		};
-	}
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method not allowed' })
+    };
+  }
 
-	try {
-		const apiKey = process.env.OPENAI_API_KEY;
-		if (!apiKey) {
-			return {
-				statusCode: 500,
-				headers,
-				body: JSON.stringify({ error: 'Server is not configured with OPENAI_API_KEY' })
-			};
-		}
+  try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'Missing OPENAI_API_KEY' })
+      };
+    }
 
-		const { partNumber } = JSON.parse(event.body || '{}');
-		if (!partNumber) {
-			return {
-				statusCode: 400,
-				headers,
-				body: JSON.stringify({ error: 'Part number is required' })
-			};
-		}
+    const { partNumber } = JSON.parse(event.body || '{}');
+    if (!partNumber) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Part number is required' })
+      };
+    }
 
-const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
+    //
+    // Step 1 — Package Verification
+    //
+    const packagePrompt = `
+You are an expert electronic component librarian.
+Verify the package type of the part number: ${partNumber}.
+
+STRICT RULES:
+1. Always start with the manufacturer’s datasheet for the EXACT part number.
+   - Extract ordering code mapping → package type, pin count, dimensions.
+   - If datasheet confirmation fails, return PACKAGE_UNVERIFIED immediately.
+2. Cross-check with at least TWO authorized distributors (Digi-Key, Mouser, Arrow, Avnet).
+   - Record BOTH “Package / Case” and “Supplier Device Package.”
+   - Must match datasheet exactly.
+3. Consistency:
+   - Datasheet pin count must equal distributor pin count.
+   - Package names must match exactly (SOIC-8 ≠ SOP-8 unless explicitly equivalent).
+4. NEVER guess, assume, or use family similarity.
+   - If any step fails → return PACKAGE_UNVERIFIED.
+
+OUTPUT FORMAT: JSON ONLY
+{
+  "part_number": "${partNumber}",
+  "datasheet_verification": {
+    "ordering_code_reference": "<ordering code or UNVERIFIED>",
+    "package_type": "<package name or UNVERIFIED>",
+    "pin_count": "<number or UNVERIFIED>",
+    "dimensions": "<value or UNVERIFIED>"
+  },
+  "distributor_verification": [
+    {
+      "distributor": "Digi-Key",
+      "package_case": "<value or UNVERIFIED>",
+      "supplier_device_package": "<value or UNVERIFIED>"
+    },
+    {
+      "distributor": "Mouser",
+      "package_case": "<value or UNVERIFIED>",
+      "supplier_device_package": "<value or UNVERIFIED>"
+    }
+  ],
+  "final_result": "PACKAGE_CONFIRMED or PACKAGE_UNVERIFIED",
+  "reason": "<clear explanation>"
+}`;
+
+    const verifyResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are a strict package verification assistant. Output JSON only.' },
+          { role: 'user', content: packagePrompt }
+        ],
+        temperature: 0,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const verifyData = await verifyResponse.json();
+    const verification = JSON.parse(verifyData.choices[0].message.content);
+
+    if (verification.final_result === "PACKAGE_UNVERIFIED") {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ verification })
+      };
+    }
+
+    //
+    // Step 2 — Alternatives Search (only if package confirmed)
+    //
+    const altPrompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
 
 Follow these requirements carefully:
 1. Original Part Verification
@@ -129,54 +200,40 @@ IMPORTANT: Make each alternative visually distinct and easy to separate. Use cle
 
 Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
 
+    const altResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives.' },
+          { role: 'user', content: altPrompt }
+        ],
+        max_tokens: 16384
+      })
+    });
 
-		const response = await fetch('https://api.openai.com/v1/chat/completions', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${apiKey}`
-			},
-			body: JSON.stringify({
-				model: 'gpt-4o',
-				messages: [
-					{
-						role: 'system',
-						content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications. The alternatives should be package and footprint compatible with similar electrical and timing specifications and if applicable, firmware/register similarities.'
-					},
-					{
-						role: 'user',
-						content: prompt
-					}
-				],
-				max_tokens: 16384
-			})
-		});
+    const altData = await altResponse.json();
+    const markdownContent = altData.choices[0].message.content;
+    const htmlContent = marked(markdownContent);
 
-		if (!response.ok) {
-			const errorData = await response.json();
-			throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
-		}
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        verification,
+        alternatives: htmlContent
+      })
+    };
 
-		const data = await response.json();
-		
-		if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-			throw new Error('Unexpected API response structure');
-		}
-		
-		// Convert markdown to HTML
-		const markdownContent = data.choices[0].message.content;
-		const htmlContent = marked(markdownContent);
-		
-		return {
-			statusCode: 200,
-			headers,
-			body: JSON.stringify({ alternatives: htmlContent })
-		};
-	} catch (error) {
-		return {
-			statusCode: 500,
-			headers,
-			body: JSON.stringify({ error: error.message || 'Server error' })
-		};
-	}
+  } catch (error) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: error.message || 'Server error' })
+    };
+  }
 };
