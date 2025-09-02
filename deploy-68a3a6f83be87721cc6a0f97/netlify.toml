@@ -3,8 +3,8 @@ directory = "netlify/functions"
 node_bundler = "esbuild"
 
 [[redirects]]
-from = "/api/alternatives-background"
-to = "/.netlify/functions/alternatives-background"
+from = "/api/alternatives"
+to = "/.netlify/functions/alternatives"
 status = 200
 force = false
 
