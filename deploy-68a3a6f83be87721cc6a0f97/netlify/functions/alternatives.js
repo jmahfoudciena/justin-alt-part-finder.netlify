@@ -59,11 +59,10 @@ const prompt = `I need to find 3 alternative components for the electronic part 
 Follow these requirements carefully:
 1. Original Part Verification
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
-• Package Type Verification (STRICT):
+• Package Type Verification:
   - You must confirm the package type using:
-		Authorized Distributors 
-        - Use Digi-Key
-       	- Verify BOTH “Package / Case” AND “Supplier Device Package.”
+		Octopart 
+       	- Take this information from the "descriptions" section
        	- Extract the package type, pin count, and dimensions.
  No assumptions.
   - Consistency Rules:
