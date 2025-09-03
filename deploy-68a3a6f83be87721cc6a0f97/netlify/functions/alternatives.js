@@ -164,7 +164,7 @@ Ensure all information is accurate, cited from datasheets or distributor listing
 					{ role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.' },
 					{ role: 'user', content: prompt }
 				],
-				//max_tokens: 16384
+				max_tokens: 16384
 			})
 		});
 
