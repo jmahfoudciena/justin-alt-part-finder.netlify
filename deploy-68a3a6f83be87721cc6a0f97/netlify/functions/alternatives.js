@@ -1,76 +1,94 @@
 const { marked } = require('marked');
 const fetch = require('node-fetch');
-const cheerio = require('cheerio'); // For parsing HTML
+const cheerio = require('cheerio');
 
 marked.setOptions({
-	breaks: true,
-	gfm: true,
-	sanitize: false,
-	headerIds: true,
-	mangle: false
+  breaks: true,
+  gfm: true,
+  sanitize: false,
+  headerIds: true,
+  mangle: false
 });
 
 exports.handler = async (event, context) => {
-	const headers = {
-		'Access-Control-Allow-Origin': '*',
-		'Access-Control-Allow-Headers': 'Content-Type',
-		'Access-Control-Allow-Methods': 'POST, OPTIONS'
-	};
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  };
 
-	if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-	if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+  if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
-	try {
-		const apiKey = process.env.OPENAI_API_KEY;
-		const googleKey = process.env.GOOGLE_API_KEY;
-		const googleCx = process.env.GOOGLE_CX;
+  try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    const googleKey = process.env.GOOGLE_API_KEY;
+    const googleCx = process.env.GOOGLE_CX;
 
-		const { partNumber } = JSON.parse(event.body || '{}');
-		if (!partNumber) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Part number is required' }) };
+    const { partNumber } = JSON.parse(event.body || '{}');
+    if (!partNumber) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Part number is required' }) };
 
-		// --- Step 1: Google Search ---
-		let searchResults = [];
-		if (googleKey && googleCx) {
-			const query = `${partNumber} site:digikey.com`;
-			const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&q=${encodeURIComponent(query)}`;
-			const googleResp = await fetch(googleUrl);
-			if (googleResp.ok) {
-				const googleData = await googleResp.json();
-				// Keep top 3 Digi-Key links
-				searchResults = (googleData.items || [])
-					.filter(item => item.link.includes('digikey.com'))
-					.slice(0, 3)
-					.map(item => item.link);
-			}
-		}
+    // --- Step 1: Google Search ---
+    let searchResults = [];
+    let googleData = null;
 
-		// --- Step 2 (Rewritten): Extract package info from Google JSON ---
-		let packageInfoList = [];
-		
-		for (const item of searchResults) {
-		  const foundItem = googleData.items.find(i => i.link === item);
-		  if (!foundItem) continue;
-		
-		  // Check if Google pagemap has metatags
-		  const metatags = foundItem.pagemap?.metatags?.[0] || {};
-		
-		  // Try to extract package info from known fields
-		  const packageType = metatags['data-partclass'] || 'N/A';
-		  const supplierPackage = metatags['data-supplierid'] || 'N/A';
-		
-		  packageInfoList.push({
-		    url: item,
-		    packageType,
-		    supplierPackage
-		  });
-		
-		  console.log(`📦 Found package info for ${item}:`);
-		  console.log(`   Package / Case: ${packageType}`);
-		  console.log(`   Supplier Device Package: ${supplierPackage}`);
-		}
+    if (googleKey && googleCx) {
+      const query = `${partNumber} site:digikey.com`;
+      const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&q=${encodeURIComponent(query)}`;
+      const googleResp = await fetch(googleUrl);
 
-		// --- Step 3: Build GPT prompt ---
-		const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
+      if (googleResp.ok) {
+        googleData = await googleResp.json();
+        searchResults = (googleData.items || [])
+          .filter(item => item.link.includes('digikey.com'))
+          .slice(0, 3)
+          .map(item => item.link);
+      } else {
+        console.warn('Google Search request failed:', googleResp.statusText);
+      }
+    }
+
+    if (searchResults.length === 0) {
+      return { statusCode: 404, headers, body: JSON.stringify({ error: 'No Digi-Key links found' }) };
+    }
+
+    // --- Step 2: Scrape Digi-Key pages ---
+    let packageInfoList = [];
+
+    for (const url of searchResults) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) continue;
+
+        const html = await resp.text();
+        const $ = cheerio.load(html);
+
+        let packageType = $('table[data-testid="product-details-specs"] tr')
+          .filter((i, el) => $(el).find('th').text().trim() === 'Package / Case')
+          .find('td')
+          .text()
+          .trim();
+
+        let supplierPackage = $('table[data-testid="product-details-specs"] tr')
+          .filter((i, el) => $(el).find('th').text().trim() === 'Supplier Device Package')
+          .find('td')
+          .text()
+          .trim();
+
+        if (packageType || supplierPackage) {
+          packageInfoList.push({
+            url,
+            packageType: packageType || 'N/A',
+            supplierPackage: supplierPackage || 'N/A'
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to fetch/parse Digi-Key page:', url, err.message);
+      }
+    }
+
+    // --- Step 3: Build GPT prompt ---
+    const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
 
 Here is the package info extracted from Digi-Key:
 ${packageInfoList.length > 0 ? JSON.stringify(packageInfoList, null, 2) : "[No package info found]"}
@@ -138,35 +156,35 @@ IMPORTANT: Make each alternative visually distinct and easy to separate. Use cle
 
 Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
 
-		// --- Step 4: Call OpenAI ---
-		const response = await fetch('https://api.openai.com/v1/chat/completions', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${apiKey}`
-			},
-			body: JSON.stringify({
-				model: 'gpt-4o',
-				messages: [
-					{ role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.' },
-					{ role: 'user', content: prompt }
-				],
-				max_tokens: 16384
-			})
-		});
+    // --- Step 4: Call OpenAI ---
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 16384
+      })
+    });
 
-		if (!response.ok) {
-			const errorData = await response.json();
-			throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
-		}
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`OpenAI API Error: ${errorData.error?.message || response.statusText}`);
+    }
 
-		const data = await response.json();
-		const markdownContent = data.choices?.[0]?.message?.content || '';
-		const htmlContent = marked(markdownContent);
+    const data = await response.json();
+    const markdownContent = data.choices?.[0]?.message?.content || '';
+    const htmlContent = marked(markdownContent);
 
-		return { statusCode: 200, headers, body: JSON.stringify({ alternatives: htmlContent, raw: markdownContent, packageInfoList }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ alternatives: htmlContent, raw: markdownContent, packageInfoList }) };
 
-	} catch (error) {
-		return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || 'Server error' }) };
-	}
+  } catch (error) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || 'Server error' }) };
+  }
 };
