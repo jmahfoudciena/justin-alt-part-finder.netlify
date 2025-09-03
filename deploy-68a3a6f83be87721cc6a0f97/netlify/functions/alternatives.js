@@ -44,42 +44,29 @@ exports.handler = async (event, context) => {
 			}
 		}
 
-		// --- Step 2: Scrape Digi-Key pages for Package / Case info ---
+		// --- Step 2 (Rewritten): Extract package info from Google JSON ---
 		let packageInfoList = [];
-		for (const url of searchResults) {
-			try {
-				const resp = await fetch(url);
-				if (!resp.ok) continue;
-				const html = await resp.text();
-				const $ = cheerio.load(html);
-
-				// Digi-Key uses table rows for component specs
-				let packageType = $('table[data-testid="product-details-specs"] tr')
-					.filter((i, el) => $(el).find('th').text().trim() === 'Package / Case')
-					.find('td')
-					.text()
-					.trim();
-
-				let supplierPackage = $('table[data-testid="product-details-specs"] tr')
-					.filter((i, el) => $(el).find('th').text().trim() === 'Supplier Device Package')
-					.find('td')
-					.text()
-					.trim();
-
-				if (packageType || supplierPackage) {
-					console.log(`📦 Found package info for ${url}:`);
-					console.log(`   Package / Case: ${packageType || 'N/A'}`);
-					console.log(`   Supplier Device Package: ${supplierPackage || 'N/A'}`);
-					
-					packageInfoList.push({
-						url,
-						packageType,
-						supplierPackage
-					});
-				}
-			} catch (err) {
-				console.warn('Failed to fetch/parse Digi-Key page:', url, err.message);
-			}
+		
+		for (const item of searchResults) {
+		  const foundItem = googleData.items.find(i => i.link === item);
+		  if (!foundItem) continue;
+		
+		  // Check if Google pagemap has metatags
+		  const metatags = foundItem.pagemap?.metatags?.[0] || {};
+		
+		  // Try to extract package info from known fields
+		  const packageType = metatags['data-partclass'] || 'N/A';
+		  const supplierPackage = metatags['data-supplierid'] || 'N/A';
+		
+		  packageInfoList.push({
+		    url: item,
+		    packageType,
+		    supplierPackage
+		  });
+		
+		  console.log(`📦 Found package info for ${item}:`);
+		  console.log(`   Package / Case: ${packageType}`);
+		  console.log(`   Supplier Device Package: ${supplierPackage}`);
 		}
 
 		// --- Step 3: Build GPT prompt ---
