@@ -25,17 +25,30 @@ exports.handler = async (event, context) => {
     const { partNumber } = JSON.parse(event.body || '{}');
     if (!partNumber) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Part number is required' }) };
 
-    // --- Step 1: Build Digi-Key URL ---
-    const digikeyUrl = `https://www.digikey.com/en/products/detail/${partNumber}`;
-    const resp = await fetch(digikeyUrl);
-    if (!resp.ok) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Digi-Key part not found' }) };
+    // --- Step 1: Search Digi-Key ---
+    const searchUrl = `https://www.digikey.com/en/products/result?keywords=${encodeURIComponent(partNumber)}`;
+    const searchResp = await fetch(searchUrl);
+    if (!searchResp.ok) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Digi-Key search failed' }) };
 
-    const html = await resp.text();
-    const $ = cheerio.load(html);
+    const searchHtml = await searchResp.text();
+    const $search = cheerio.load(searchHtml);
 
-    // --- Step 2: Extract Package / Case ---
-    const packageType = $('table[data-testid="product-details-specs"] tr')
-      .filter((i, el) => $(el).find('th').first().text().trim() === 'Package / Case')
+    // Extract the first product URL from search results
+    const firstProductLink = $search('a[data-testid="product-link"]').first().attr('href');
+    if (!firstProductLink) return { statusCode: 404, headers, body: JSON.stringify({ error: 'No Digi-Key product found' }) };
+
+    const productUrl = `https://www.digikey.com${firstProductLink}`;
+
+    // --- Step 2: Fetch product page ---
+    const productResp = await fetch(productUrl);
+    if (!productResp.ok) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Failed to fetch product page' }) };
+
+    const productHtml = await productResp.text();
+    const $product = cheerio.load(productHtml);
+
+    // --- Step 3: Extract Package / Case ---
+    const packageType = $product('table[data-testid="product-details-specs"] tr')
+      .filter((i, el) => $product(el).find('th').first().text().trim() === 'Package / Case')
       .find('td')
       .first()
       .text()
@@ -43,7 +56,7 @@ exports.handler = async (event, context) => {
 
     if (!packageType) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Package / Case not found' }) };
 
-    // --- Step 3: Build GPT prompt to find 3 alternates ---
+    // --- Step 4: Ask GPT to find 3 alternates with same package ---
     const prompt = `I have an electronic component with part number ${partNumber} and package type ${packageType} (from Digi-Key). 
 Please identify 3 alternative components that:
 - Are functionally equivalent
@@ -52,7 +65,6 @@ Please identify 3 alternative components that:
 - Rank them by closeness to the original part
 Provide the answer in Markdown.`;
 
-    // --- Step 4: Call OpenAI ---
     const gptResp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -84,6 +96,7 @@ Provide the answer in Markdown.`;
       body: JSON.stringify({
         partNumber,
         packageType,
+        productUrl,
         alternativesMarkdown: markdownContent,
         alternativesHTML: htmlContent
       })
