@@ -22,41 +22,59 @@ exports.handler = async (event, context) => {
 
   try {
     const apiKey = process.env.OPENAI_API_KEY;
+    const googleKey = process.env.GOOGLE_API_KEY;
+    const googleCx = process.env.GOOGLE_CX;
+
     const { partNumber } = JSON.parse(event.body || '{}');
     if (!partNumber) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Part number is required' }) };
 
-    // --- Step 1: Search Digi-Key ---
-    const searchUrl = `https://www.digikey.com/en/products/result?keywords=${encodeURIComponent(partNumber)}`;
-    const searchResp = await fetch(searchUrl);
-    if (!searchResp.ok) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Digi-Key search failed' }) };
+    // --- Step 1: Google Custom Search for Digi-Key ---
+    const query = `${partNumber} site:digikey.com`;
+    const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&q=${encodeURIComponent(query)}`;
+    const googleResp = await fetch(googleUrl);
 
-    const searchHtml = await searchResp.text();
-    const $search = cheerio.load(searchHtml);
+    if (!googleResp.ok) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Google Search request failed' }) };
 
-    // Extract the first product URL from search results
-    const firstProductLink = $search('a[data-testid="product-link"]').first().attr('href');
-    if (!firstProductLink) return { statusCode: 404, headers, body: JSON.stringify({ error: 'No Digi-Key product found' }) };
+    const googleData = await googleResp.json();
+    const searchResults = (googleData.items || [])
+      .filter(item => item.link.includes('digikey.com'))
+      .slice(0, 3)
+      .map(item => item.link);
 
-    const productUrl = `https://www.digikey.com${firstProductLink}`;
+    if (searchResults.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'No Digi-Key links found' }) };
 
-    // --- Step 2: Fetch product page ---
-    const productResp = await fetch(productUrl);
-    if (!productResp.ok) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Failed to fetch product page' }) };
+    // --- Step 2: Scrape first Digi-Key product page ---
+    let packageType = null;
+    let productUrl = null;
 
-    const productHtml = await productResp.text();
-    const $product = cheerio.load(productHtml);
+    for (const url of searchResults) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) continue;
 
-    // --- Step 3: Extract Package / Case ---
-    const packageType = $product('table[data-testid="product-details-specs"] tr')
-      .filter((i, el) => $product(el).find('th').first().text().trim() === 'Package / Case')
-      .find('td')
-      .first()
-      .text()
-      .trim();
+        const html = await resp.text();
+        const $ = cheerio.load(html);
+
+        const pkg = $('table[data-testid="product-details-specs"] tr')
+          .filter((i, el) => $(el).find('th').first().text().trim() === 'Package / Case')
+          .find('td')
+          .first()
+          .text()
+          .trim();
+
+        if (pkg) {
+          packageType = pkg;
+          productUrl = url;
+          break; // Stop after first valid package
+        }
+      } catch (err) {
+        console.warn('Failed to fetch/parse Digi-Key page:', url, err.message);
+      }
+    }
 
     if (!packageType) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Package / Case not found' }) };
 
-    // --- Step 4: Ask GPT to find 3 alternates with same package ---
+    // --- Step 3: Build GPT prompt ---
     const prompt = `I have an electronic component with part number ${partNumber} and package type ${packageType} (from Digi-Key). 
 Please identify 3 alternative components that:
 - Are functionally equivalent
@@ -65,6 +83,7 @@ Please identify 3 alternative components that:
 - Rank them by closeness to the original part
 Provide the answer in Markdown.`;
 
+    // --- Step 4: Call OpenAI ---
     const gptResp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
