@@ -3,86 +3,87 @@ const fetch = require('node-fetch');
 const cheerio = require('cheerio'); // For parsing HTML
 
 marked.setOptions({
-  breaks: true,
-  gfm: true,
-  sanitize: false,
-  headerIds: true,
-  mangle: false
+	breaks: true,
+	gfm: true,
+	sanitize: false,
+	headerIds: true,
+	mangle: false
 });
 
 exports.handler = async (event, context) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-  };
+	const headers = {
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Headers': 'Content-Type',
+		'Access-Control-Allow-Methods': 'POST, OPTIONS'
+	};
 
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
+	if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+	if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
-  let logs = []; // Collect logs here
+	try {
+		const apiKey = process.env.OPENAI_API_KEY;
+		const googleKey = process.env.GOOGLE_API_KEY;
+		const googleCx = process.env.GOOGLE_CX;
 
-  try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    const googleKey = process.env.GOOGLE_API_KEY;
-    const googleCx = process.env.GOOGLE_CX;
+		const { partNumber } = JSON.parse(event.body || '{}');
+		if (!partNumber) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Part number is required' }) };
 
-    const { partNumber } = JSON.parse(event.body || '{}');
-    if (!partNumber) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Part number is required' }) };
+		// --- Step 1: Google Search ---
+		let searchResults = [];
+		if (googleKey && googleCx) {
+			const query = `${partNumber} site:digikey.com`;
+			const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&q=${encodeURIComponent(query)}`;
+			const googleResp = await fetch(googleUrl);
+			if (googleResp.ok) {
+				const googleData = await googleResp.json();
+				// Keep top 3 Digi-Key links
+				searchResults = (googleData.items || [])
+					.filter(item => item.link.includes('digikey.com'))
+					.slice(0, 3)
+					.map(item => item.link);
+			}
+		}
 
-    // --- Step 1: Google Search ---
-    let searchResults = [];
-    if (googleKey && googleCx) {
-      const query = `${partNumber} site:digikey.com`;
-      const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&q=${encodeURIComponent(query)}`;
-      const googleResp = await fetch(googleUrl);
-      if (googleResp.ok) {
-        const googleData = await googleResp.json();
-        searchResults = (googleData.items || [])
-          .filter(item => item.link.includes('digikey.com'))
-          .slice(0, 3)
-          .map(item => item.link);
-        logs.push(`🔍 Found ${searchResults.length} Digi-Key results`);
-      }
-    }
+		// --- Step 2: Scrape Digi-Key pages for Package / Case info ---
+		let packageInfoList = [];
+		for (const url of searchResults) {
+			try {
+				const resp = await fetch(url);
+				if (!resp.ok) continue;
+				const html = await resp.text();
+				const $ = cheerio.load(html);
 
-    // --- Step 2: Scrape Digi-Key pages ---
-    let packageInfoList = [];
-    for (const url of searchResults) {
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) continue;
-        const html = await resp.text();
-        const $ = cheerio.load(html);
+				// Digi-Key uses table rows for component specs
+				let packageType = $('table[data-testid="product-details-specs"] tr')
+					.filter((i, el) => $(el).find('th').text().trim() === 'Package / Case')
+					.find('td')
+					.text()
+					.trim();
 
-        let packageType = $('table[data-testid="product-details-specs"] tr')
-          .filter((i, el) => $(el).find('th').text().trim() === 'Package / Case')
-          .find('td')
-          .text()
-          .trim();
+				let supplierPackage = $('table[data-testid="product-details-specs"] tr')
+					.filter((i, el) => $(el).find('th').text().trim() === 'Supplier Device Package')
+					.find('td')
+					.text()
+					.trim();
 
-        let supplierPackage = $('table[data-testid="product-details-specs"] tr')
-          .filter((i, el) => $(el).find('th').text().trim() === 'Supplier Device Package')
-          .find('td')
-          .text()
-          .trim();
+				if (packageType || supplierPackage) {
+					console.log(`📦 Found package info for ${url}:`);
+					console.log(`   Package / Case: ${packageType || 'N/A'}`);
+					console.log(`   Supplier Device Package: ${supplierPackage || 'N/A'}`);
+					
+					packageInfoList.push({
+						url,
+						packageType,
+						supplierPackage
+					});
+				}
+			} catch (err) {
+				console.warn('Failed to fetch/parse Digi-Key page:', url, err.message);
+			}
+		}
 
-        if (packageType || supplierPackage) {
-          logs.push(`📦 ${url} → Package: ${packageType || 'N/A'}, Supplier Package: ${supplierPackage || 'N/A'}`);
-
-          packageInfoList.push({
-            url,
-            packageType,
-            supplierPackage
-          });
-        }
-      } catch (err) {
-        logs.push(`⚠️ Failed to parse ${url}: ${err.message}`);
-      }
-    }
-
-    // --- Step 3: Build GPT prompt ---
-    		const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
+		// --- Step 3: Build GPT prompt ---
+		const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
 
 Here is the package info extracted from Digi-Key:
 ${packageInfoList.length > 0 ? JSON.stringify(packageInfoList, null, 2) : "[No package info found]"}
@@ -150,45 +151,35 @@ IMPORTANT: Make each alternative visually distinct and easy to separate. Use cle
 
 Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
 
-    // --- Step 4: Call OpenAI ---
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 16384
-      })
-    });
+		// --- Step 4: Call OpenAI ---
+		const response = await fetch('https://api.openai.com/v1/chat/completions', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Bearer ${apiKey}`
+			},
+			body: JSON.stringify({
+				model: 'gpt-4o',
+				messages: [
+					{ role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.' },
+					{ role: 'user', content: prompt }
+				],
+				max_tokens: 16384
+			})
+		});
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
-    }
+		if (!response.ok) {
+			const errorData = await response.json();
+			throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+		}
 
-    const data = await response.json();
-    const markdownContent = data.choices?.[0]?.message?.content || '';
-    const htmlContent = marked(markdownContent);
+		const data = await response.json();
+		const markdownContent = data.choices?.[0]?.message?.content || '';
+		const htmlContent = marked(markdownContent);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        alternatives: htmlContent,
-        raw: markdownContent,
-        packageInfoList,
-        logs // <-- return logs to frontend
-      })
-    };
+		return { statusCode: 200, headers, body: JSON.stringify({ alternatives: htmlContent, raw: markdownContent, packageInfoList }) };
 
-  } catch (error) {
-    logs.push(`❌ Server error: ${error.message || 'Unknown error'}`);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || 'Server error', logs }) };
-  }
+	} catch (error) {
+		return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || 'Server error' }) };
+	}
 };
