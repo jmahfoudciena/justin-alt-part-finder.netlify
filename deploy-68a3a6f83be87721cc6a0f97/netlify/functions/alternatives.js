@@ -159,7 +159,7 @@ Ensure all information is accurate, cited from datasheets or distributor listing
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-5',
+				model: 'gpt-4o',
 				messages: [
 					{ role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.' },
 					{ role: 'user', content: prompt }
