@@ -1,6 +1,5 @@
 const { marked } = require('marked');
 const fetch = require('node-fetch');
-const cheerio = require('cheerio');
 
 marked.setOptions({
   breaks: true,
@@ -43,47 +42,24 @@ exports.handler = async (event, context) => {
 
     if (searchResults.length === 0) return { statusCode: 404, headers, body: JSON.stringify({ error: 'No Digi-Key links found' }) };
 
-    // --- Step 2: Scrape first Digi-Key product page ---
-    let packageType = null;
-    let productUrl = null;
+    // --- Step 2: Build GPT prompt ---
+    const prompt = `
+I have an electronic component with part number ${partNumber}. 
 
-    for (const url of searchResults) {
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) continue;
+Here are Digi-Key links I found:
+${searchResults.join('\n')}
 
-        const html = await resp.text();
-        const $ = cheerio.load(html);
+Please identify:
+1. The Package / Case of the original part.
+2. Three alternative components that:
+   - Are functionally equivalent
+   - Have the same package type
+   - Include manufacturer, key specs, and price if possible
+   - Rank them by closeness to the original part
+Provide the answer in Markdown.
+`;
 
-        const pkg = $('table[data-testid="product-details-specs"] tr')
-          .filter((i, el) => $(el).find('th').first().text().trim() === 'Package / Case')
-          .find('td')
-          .first()
-          .text()
-          .trim();
-
-        if (pkg) {
-          packageType = pkg;
-          productUrl = url;
-          break; // Stop after first valid package
-        }
-      } catch (err) {
-        console.warn('Failed to fetch/parse Digi-Key page:', url, err.message);
-      }
-    }
-
-    if (!packageType) return { statusCode: 404, headers, body: JSON.stringify({ error: 'Package / Case not found' }) };
-
-    // --- Step 3: Build GPT prompt ---
-    const prompt = `I have an electronic component with part number ${partNumber} and package type ${packageType} (from Digi-Key). 
-Please identify 3 alternative components that:
-- Are functionally equivalent
-- Have the same package type (${packageType})
-- Include manufacturer, key specs, and price if possible
-- Rank them by closeness to the original part
-Provide the answer in Markdown.`;
-
-    // --- Step 4: Call OpenAI ---
+    // --- Step 3: Call OpenAI ---
     const gptResp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -114,8 +90,7 @@ Provide the answer in Markdown.`;
       headers,
       body: JSON.stringify({
         partNumber,
-        packageType,
-        productUrl,
+        searchResults,
         alternativesMarkdown: markdownContent,
         alternativesHTML: htmlContent
       })
