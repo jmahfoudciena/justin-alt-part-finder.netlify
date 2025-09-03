@@ -1,6 +1,6 @@
 {
   "name": "part-alternative-finder",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-powered part alternative finder for electronic components",
   "main": "index.js",
   "scripts": {
@@ -14,7 +14,8 @@
     "helmet": "^7.1.0",
     "node-fetch": "^2.7.0",
     "marked": "^9.1.6",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "cheerio": "^1.0.0-rc.12"
   },
   "devDependencies": {
     "netlify-cli": "^17.10.1"
