@@ -1,4 +1,5 @@
 const { marked } = require('marked');
+const fetch = require('node-fetch');
 
 // Configure marked for security and proper rendering
 marked.setOptions({
@@ -17,55 +18,57 @@ exports.handler = async (event, context) => {
 		'Access-Control-Allow-Methods': 'POST, OPTIONS'
 	};
 
-	// Handle OPTIONS request for CORS preflight
 	if (event.httpMethod === 'OPTIONS') {
-		return {
-			statusCode: 200,
-			headers,
-			body: ''
-		};
+		return { statusCode: 200, headers, body: '' };
 	}
 
-	// Only allow POST requests
 	if (event.httpMethod !== 'POST') {
-		return {
-			statusCode: 405,
-			headers,
-			body: JSON.stringify({ error: 'Method not allowed' })
-		};
+		return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 	}
 
 	try {
 		const apiKey = process.env.OPENAI_API_KEY;
+		const googleKey = process.env.GOOGLE_API_KEY;
+		const googleCx = process.env.GOOGLE_CX;
 		if (!apiKey) {
-			return {
-				statusCode: 500,
-				headers,
-				body: JSON.stringify({ error: 'Server is not configured with OPENAI_API_KEY' })
-			};
+			return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server is not configured with OPENAI_API_KEY' }) };
 		}
 
 		const { partNumber } = JSON.parse(event.body || '{}');
 		if (!partNumber) {
-			return {
-				statusCode: 400,
-				headers,
-				body: JSON.stringify({ error: 'Part number is required' })
-			};
+			return { statusCode: 400, headers, body: JSON.stringify({ error: 'Part number is required' }) };
 		}
 
-const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
+		// --- Step 1: Google Search ---
+		let searchResults = "";
+		try {
+			if (googleKey && googleCx) {
+				const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&q=${encodeURIComponent(partNumber + " datasheet OR site:digikey.com OR site:mouser.com")}`;
+				const googleResp = await fetch(googleUrl);
+				if (googleResp.ok) {
+					const googleData = await googleResp.json();
+					searchResults = (googleData.items || []).slice(0, 5).map(item => `- ${item.title}\n${item.link}\n${item.snippet}`).join("\n\n");
+				}
+			}
+		} catch (err) {
+			console.warn("Google Search failed, continuing without it", err.message);
+		}
+
+		// --- Step 2: Build GPT prompt ---
+		const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
+
+Here are some search results that may help (from Google):\n${searchResults || "[No search results found or search unavailable]"}
 
 Follow these requirements carefully:
 1. Original Part Verification
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
 • Package Type Verification:
   - You must confirm the package type using:
-		Authorized Distributors 
-        - Use Digi-Key
-       	- Verify BOTH “Package / Case” AND “Supplier Device Package.”
-       	- Extract the package type, pin count, and dimensions.
- No assumptions.
+    Authorized Distributors 
+    - Use Digi-Key
+    - Verify BOTH “Package / Case” AND “Supplier Device Package.”
+    - Extract the package type, pin count, and dimensions.
+  - No assumptions.
   - Consistency Rules:
     - Do not assume family parts share the same package; only confirm from “Package / Case” AND “Supplier Device Package”.
     - Do not invent, infer, or guess.
@@ -77,7 +80,7 @@ Follow these requirements carefully:
 • Identify 3 Alternatives:
   - From reputable manufacturers (e.g., TI, ADI, NXP, ON Semi, Microchip)
   - Prioritize parts that are functionally equivalent and package-compatible
-  - Hint: Sometimes alternates will have similar part numbers. For instance, STTS2004B2DN3F is alternate for AT30TSE004A. Both have 004 in their part number. Use this information to find alternates. 
+  - Hint: Sometimes alternates will have similar part numbers. For instance, STTS2004B2DN3F is alternate for AT30TSE004A. Both have 004 in their part number.
 • Industry-Preferred Equivalents: Always include known industry-preferred equivalents if they meet functional and package criteria.
 • Package Variant Awareness: Check if multiple package variants exist (e.g., SOIC, TSSOP). Include compatible variants even if not listed in the original query.
 • Verification Requirements:
@@ -110,7 +113,7 @@ If a verified preferred alternate exists, list it first and explain any minor de
 • Explicitly note differences in functional blocks that may affect compatibility.
 • Recommend the most suitable alternatives with reasoning.
 • Include date of availability verification for all parts.
-   
+
 IMPORTANT: Make each alternative visually distinct and easy to separate. Use clear section breaks, numbered lists, or visual separators between each alternative. Consider using:
 - Clear numbered sections (1., 2., 3.)
 - Horizontal rules (---) between alternatives
@@ -119,7 +122,7 @@ IMPORTANT: Make each alternative visually distinct and easy to separate. Use cle
 
 Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
 
-
+		// --- Step 3: Call OpenAI ---
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
 			headers: {
@@ -129,17 +132,10 @@ Ensure all information is accurate, cited from datasheets or distributor listing
 			body: JSON.stringify({
 				model: 'gpt-4o',
 				messages: [
-					{
-						role: 'system',
-						content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.'
-					},
-					{
-						role: 'user',
-						content: prompt
-					}
+					{ role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.' },
+					{ role: 'user', content: prompt }
 				],
-				max_completion_tokens: 4096
-				
+				max_tokens: 16384
 			})
 		});
 
@@ -149,25 +145,10 @@ Ensure all information is accurate, cited from datasheets or distributor listing
 		}
 
 		const data = await response.json();
-		
-		if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-			throw new Error('Unexpected API response structure');
-		}
-		
-		// Convert markdown to HTML
-		const markdownContent = data.choices[0].message.content;
+		const markdownContent = data.choices?.[0]?.message?.content || '';
 		const htmlContent = marked(markdownContent);
-		
-		return {
-			statusCode: 200,
-			headers,
-			body: JSON.stringify({ alternatives: htmlContent })
-		};
+		return { statusCode: 200, headers, body: JSON.stringify({ alternatives: htmlContent, raw: markdownContent, searchResults }) };
 	} catch (error) {
-		return {
-			statusCode: 500,
-			headers,
-			body: JSON.stringify({ error: error.message || 'Server error' })
-		};
+		return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || 'Server error' }) };
 	}
 };
