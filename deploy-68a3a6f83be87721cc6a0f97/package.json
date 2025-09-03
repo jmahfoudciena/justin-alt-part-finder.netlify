@@ -2,13 +2,19 @@
   "name": "part-alternative-finder",
   "version": "1.0.0",
   "description": "AI-powered part alternative finder for electronic components",
-  "main": "index.html",
+  "main": "index.js",
   "scripts": {
     "build": "echo 'No build step required for static files'",
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "start": "node server.js"
   },
   "dependencies": {
-    "marked": "^9.1.6"
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "node-fetch": "^2.7.0",
+    "marked": "^9.1.6",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "netlify-cli": "^17.10.1"
