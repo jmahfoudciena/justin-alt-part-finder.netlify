@@ -30,15 +30,15 @@ exports.handler = async (event, context) => {
 
 		// --- Step 1: Google Search ---
 		let searchResults = [];
+		let googleData = null;
 		if (googleKey && googleCx) {
 			const query = `${partNumber} site:digikey.com`;
 			const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&q=${encodeURIComponent(query)}`;
 			const googleResp = await fetch(googleUrl);
 			if (googleResp.ok) {
-				const googleData = await googleResp.json();
-				// Keep top 3 Digi-Key links
+				googleData = await googleResp.json();
 				searchResults = (googleData.items || [])
-					.filter(item => item.link.includes('digikey.com'))
+					.filter(item => /digikey\.com/.test(item.link))
 					.slice(0, 3)
 					.map(item => item.link);
 			}
@@ -53,7 +53,6 @@ exports.handler = async (event, context) => {
 				const html = await resp.text();
 				const $ = cheerio.load(html);
 
-				// Digi-Key uses table rows for component specs
 				let packageType = $('table[data-testid="product-details-specs"] tr')
 					.filter((i, el) => $(el).find('th').text().trim() === 'Package / Case')
 					.find('td')
@@ -67,10 +66,6 @@ exports.handler = async (event, context) => {
 					.trim();
 
 				if (packageType || supplierPackage) {
-					console.log(`📦 Found package info for ${url}:`);
-					console.log(`   Package / Case: ${packageType || 'N/A'}`);
-					console.log(`   Supplier Device Package: ${supplierPackage || 'N/A'}`);
-					
 					packageInfoList.push({
 						url,
 						packageType,
@@ -78,12 +73,12 @@ exports.handler = async (event, context) => {
 					});
 				}
 			} catch (err) {
-				console.warn('Failed to fetch/parse Digi-Key page:', url, err.message);
+				// ignore page errors for now
 			}
 		}
 
 		// --- Step 3: Build GPT prompt ---
-		const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
+				const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
 
 Here is the package info extracted from Digi-Key:
 ${packageInfoList.length > 0 ? JSON.stringify(packageInfoList, null, 2) : "[No package info found]"}
@@ -152,32 +147,44 @@ IMPORTANT: Make each alternative visually distinct and easy to separate. Use cle
 Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
 
 		// --- Step 4: Call OpenAI ---
-		const response = await fetch('https://api.openai.com/v1/chat/completions', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${apiKey}`
-			},
-			body: JSON.stringify({
-				model: 'gpt-4o',
-				messages: [
-					{ role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.' },
-					{ role: 'user', content: prompt }
-				],
-				max_tokens: 16384
-			})
-		});
+		let htmlContent = '';
+		let markdownContent = '';
+		if (apiKey) {
+			const response = await fetch('https://api.openai.com/v1/chat/completions', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${apiKey}`
+				},
+				body: JSON.stringify({
+					model: 'gpt-4o',
+					messages: [
+						{ role: 'system', content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications.' },
+						{ role: 'user', content: prompt }
+					],
+					max_tokens: 16384
+				})
+			});
 
-		if (!response.ok) {
-			const errorData = await response.json();
-			throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+			if (response.ok) {
+				const data = await response.json();
+				markdownContent = data.choices?.[0]?.message?.content || '';
+				htmlContent = marked(markdownContent);
+			}
 		}
 
-		const data = await response.json();
-		const markdownContent = data.choices?.[0]?.message?.content || '';
-		const htmlContent = marked(markdownContent);
-
-		return { statusCode: 200, headers, body: JSON.stringify({ alternatives: htmlContent, raw: markdownContent, packageInfoList }) };
+		// --- Step 5: Return results including Google Search data ---
+		return {
+			statusCode: 200,
+			headers,
+			body: JSON.stringify({
+				alternatives: htmlContent,           // GPT HTML output
+				raw: markdownContent,                 // GPT raw markdown
+				packageInfoList,                      // scraped package info
+				googleSearchResults: searchResults,  // filtered Digi-Key links
+				googleRawData: googleData            // full Google Search JSON
+			})
+		};
 
 	} catch (error) {
 		return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || 'Server error' }) };
