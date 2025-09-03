@@ -67,6 +67,10 @@ exports.handler = async (event, context) => {
 					.trim();
 
 				if (packageType || supplierPackage) {
+					console.log(`📦 Found package info for ${url}:`);
+					console.log(`   Package / Case: ${packageType || 'N/A'}`);
+					console.log(`   Supplier Device Package: ${supplierPackage || 'N/A'}`);
+					
 					packageInfoList.push({
 						url,
 						packageType,
