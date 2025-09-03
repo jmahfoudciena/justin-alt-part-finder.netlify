@@ -93,7 +93,7 @@ exports.handler = async (event, context) => {
 Here is the package info extracted from Digi-Key:
 ${packageInfoList.length > 0 ? JSON.stringify(packageInfoList, null, 2) : "[No package info found]"}
 
-Follow these requirements carefully:
+Follow these requirements carefully. Use information extracted from the Google Custom Search:
 1. Original Part Verification
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
 • Package Type: Use package / case extracted from the Google Custom Search
