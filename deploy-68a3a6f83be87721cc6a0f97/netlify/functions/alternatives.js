@@ -96,16 +96,7 @@ ${packageInfoList.length > 0 ? JSON.stringify(packageInfoList, null, 2) : "[No p
 Follow these requirements carefully:
 1. Original Part Verification
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
-• Package Type Verification:
-  - You must confirm the package type using:
-		Authorized Distributors 
-        - Use Digi-Key
-       	- Verify BOTH “Package / Case” AND “Supplier Device Package.”
-       	- Extract the package type, pin count, and dimensions.
- No assumptions.
-  - Consistency Rules:
-    - Do not assume family parts share the same package; only confirm from “Package / Case” AND “Supplier Device Package”.
-    - Do not invent, infer, or guess.
+• Package Type: Use package / case extracted from the Google Custom Search
 • Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
 • Pinout Verification: Confirm pinout from datasheet.
 • Block Diagram Summary: Analyze internal functional blocks (e.g., PLL, MUX, Buffers, ADC, interfaces). Cite datasheet section.
