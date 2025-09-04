@@ -47,12 +47,28 @@ async function fetchPart(mpn, token) {
   const data = await res.json();
   console.log(`Nexar response for ${mpn}:`, JSON.stringify(data, null, 2));
 
+  // Handle errors
+  if (data.errors) {
+    console.error(`GraphQL errors for ${mpn}:`, data.errors);
+    return null;
+  }
+
   const results = data?.data?.supSearchMpn?.results;
-  if (!results || results.length === 0) return null;
-  return results[0]?.part || null;
+  if (!results || results.length === 0) {
+    console.warn(`No results found for ${mpn}`);
+    return null;
+  }
+
+  const part = results[0]?.part;
+  if (!part) {
+    console.warn(`Part object missing for ${mpn}`);
+    return null;
+  }
+
+  return part;
 }
 
-// --- Helper: Call OpenAI GPT-4o to generate comparison table ---
+// --- Helper: Generate comparison table via GPT-4o ---
 async function getComparisonTable(partA, partB) {
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -81,6 +97,7 @@ ${JSON.stringify(partB.specs, null, 2)}`
     });
 
     const data = await res.json();
+    console.log("OpenAI response:", JSON.stringify(data, null, 2));
     return data.choices?.[0]?.message?.content || "No table generated.";
   } catch (err) {
     console.error("OpenAI request failed:", err);
@@ -128,7 +145,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Generate comparison table
+    // Generate comparison table via GPT-4o
     const comparisonTable = await getComparisonTable(partA, partB);
 
     return {
