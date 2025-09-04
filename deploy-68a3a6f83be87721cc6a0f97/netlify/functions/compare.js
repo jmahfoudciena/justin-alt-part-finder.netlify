@@ -45,7 +45,11 @@ async function fetchPart(mpn, token) {
   });
 
   const data = await res.json();
-  return data?.data?.supSearchMpn?.results?.[0]?.part || null;
+  console.log(`Nexar response for ${mpn}:`, JSON.stringify(data, null, 2));
+
+  const results = data?.data?.supSearchMpn?.results;
+  if (!results || results.length === 0) return null;
+  return results[0]?.part || null;
 }
 
 // --- Helper: Call OpenAI GPT-4o to generate comparison table ---
@@ -104,7 +108,7 @@ exports.handler = async (event) => {
 
     const token = await getNexarToken();
 
-    // Fetch parts individually
+    // Fetch each part individually
     const partA = await fetchPart(partANum, token);
     const partB = await fetchPart(partBNum, token);
 
