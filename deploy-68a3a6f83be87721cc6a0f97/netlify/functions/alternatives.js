@@ -1,7 +1,5 @@
-// netlify/functions/alternatives.js
 const fetch = require('node-fetch');
 const { marked } = require('marked');
-const cheerio = require('cheerio'); // For scraping Digi-Key
 require('dotenv').config();
 
 // Configure marked
@@ -13,69 +11,65 @@ marked.setOptions({
   mangle: false
 });
 
-exports.handler = async function(event, context) {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-  };
+// Helper: Google Custom Search
+async function googleSearch(partNumber) {
+  const googleKey = process.env.GOOGLE_API_KEY;
+  const googleCx = process.env.GOOGLE_CX;
+  if (!googleKey || !googleCx) {
+    throw new Error('Missing GOOGLE_API_KEY or GOOGLE_CX');
+  }
 
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: 'Method Not Allowed' };
+  const query = `${partNumber} datasheet OR site:digikey.com OR site:mouser.com OR site:arrow.com OR site:avnet.com OR site:ti.com filetype:pdf`;
+  const url = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&num=6&q=${encodeURIComponent(query)}`;
 
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`Google Search API error: ${resp.status} ${text}`);
+  }
+
+  const data = await resp.json();
+  const items = Array.isArray(data.items) ? data.items : [];
+  return items.map(it => ({
+    title: it.title,
+    link: it.link,
+    snippet: it.snippet || ''
+  }));
+}
+
+// Netlify Function handler
+exports.handler = async (event, context) => {
   try {
-    const { partNumber } = JSON.parse(event.body || '{}');
-    if (!partNumber) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Part number is required' }) };
-
-    // --- Step 1: Google Custom Search ---
-    const googleKey = process.env.GOOGLE_API_KEY;
-    const googleCx = process.env.GOOGLE_CX;
-    let searchResults = [];
-    let googleRawData = null;
-
-    if (googleKey && googleCx) {
-      const query = `${partNumber} site:digikey.com`;
-      const url = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&q=${encodeURIComponent(query)}`;
-      const resp = await fetch(url);
-      if (resp.ok) {
-        googleRawData = await resp.json();
-        searchResults = (googleRawData.items || [])
-          .filter(item => /digikey\.com/.test(item.link))
-          .slice(0, 5)
-          .map(item => item.link);
-      }
+    if (event.httpMethod !== 'POST') {
+      return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    // --- Step 2: Scrape Digi-Key Pages for "Package / Case" ---
-    const packageInfoList = [];
-    for (const url of searchResults) {
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) continue;
-        const html = await resp.text();
-        const $ = cheerio.load(html);
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return { statusCode: 500, body: 'Missing OPENAI_API_KEY' };
 
-        const packageType = $('table[data-testid="product-details-specs"] tr')
-          .filter((i, el) => $(el).find('th').text().trim() === 'Package / Case')
-          .find('td')
-          .text()
-          .trim();
+    const body = JSON.parse(event.body || '{}');
+    const { partNumber } = body;
+    if (!partNumber) return { statusCode: 400, body: 'partNumber is required' };
 
-        if (packageType) {
-          packageInfoList.push({ url, packageType });
-        }
-      } catch (err) {
-        // ignore scraping errors
+    // 1) Google search
+    let searchItems = [];
+    let searchSummary = 'No search results found.';
+    try {
+      searchItems = await googleSearch(partNumber);
+      if (searchItems.length) {
+        searchSummary = searchItems
+          .slice(0, 6)
+          .map((r, i) => `${i + 1}. ${r.title}\nURL: ${r.link}\n${r.snippet}`)
+          .join('\n\n');
       }
+    } catch (e) {
+      console.warn('Google search failed, continuing without results:', e.message);
     }
 
-    // --- Step 3: Build GPT prompt ---
-    const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
-
-Here is the package info extracted from Digi-Key:
-${packageInfoList.length > 0 ? JSON.stringify(packageInfoList, null, 2) : "[No package info found]"}
-
-Follow these requirements carefully:
+    // 2) OpenAI prompt
+    const userPrompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
+	Use the following web search results as context:${searchSummary}
+ 	Follow these requirements carefully:
 1. Original Part Verification
 • Short Description: Provide a concise summary of the original component’s function and key specifications.
 • Package Type Verification:
@@ -138,49 +132,45 @@ IMPORTANT: Make each alternative visually distinct and easy to separate. Use cle
 
 Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
 
-    // --- Step 4: Call OpenAI ---
-    const apiKey = process.env.OPENAI_API_KEY;
-    let htmlContent = '';
-    let markdownContent = '';
 
-    if (apiKey) {
-      const openAIResp = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: 'You are a helpful electronics engineer who finds component alternatives.' },
-            { role: 'user', content: prompt }
-          ],
-          max_tokens: 4000
-        })
-      });
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are a helpful electronics engineer specializing in finding component alternatives.' },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 16384
+      })
+    });
 
-      if (openAIResp.ok) {
-        const data = await openAIResp.json();
-        markdownContent = data.choices?.[0]?.message?.content || '';
-        htmlContent = marked(markdownContent);
-      }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || 'OpenAI API error');
     }
 
-    // --- Step 5: Return combined result ---
+    const data = await response.json();
+    const markdownContent = data.choices?.[0]?.message?.content || '';
+    const htmlContent = marked(markdownContent).replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+
     return {
       statusCode: 200,
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         alternatives: htmlContent,
         raw: markdownContent,
-        packageInfoList,
-        googleSearchResults: searchResults,
-        googleRawData
+        searchResults: searchItems
       })
     };
-
-  } catch (error) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || 'Server error' }) };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message || 'Server error' })
+    };
   }
 };
