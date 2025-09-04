@@ -9,7 +9,7 @@ async function getNexarToken() {
       client_id: process.env.NEXAR_CLIENT_ID,
       client_secret: process.env.NEXAR_CLIENT_SECRET,
       grant_type: "client_credentials",
-      scope: "sup.read"
+      scope: "supply"
     }),
   });
   const data = await res.json();
@@ -28,7 +28,7 @@ async function getComparisonTable(partA, partB) {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "gpt-5-mini", // or "gpt-4o-mini"
+      model: "gpt-4o", // or "gpt-4o-mini"
       messages: [
         {
           role: "system",
