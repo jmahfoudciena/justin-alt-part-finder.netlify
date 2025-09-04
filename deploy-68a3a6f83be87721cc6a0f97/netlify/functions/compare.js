@@ -90,25 +90,20 @@ exports.handler = async (event) => {
 
     // --- GraphQL query using supSearchMpn ---
     const query = `
-      query getParts($mpns: [String!]!, $limit: Int!) {
-        supSearchMpn(
-          q: $mpns
-          limit: $limit
-        ) {
-          hits
-          results {
-            part {
-              mpn
-              manufacturer { name }
-              specs {
-                attribute { name id shortname }
-                displayValue
-              }
-            }
-          }
+query getPart($mpn: String!) {
+  supSearchMpn(q: $mpn, limit: 1) {
+    results {
+      part {
+        mpn
+        manufacturer { name }
+        specs {
+          attribute { name id shortname }
+          displayValue
         }
       }
-    `;
+    }
+  }
+}`;
 
     console.log("Querying Nexar GraphQL...");
     const res = await fetch("https://api.nexar.com/graphql", {
