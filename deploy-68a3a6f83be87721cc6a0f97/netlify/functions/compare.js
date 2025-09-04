@@ -9,7 +9,7 @@ async function getNexarToken() {
       client_id: process.env.NEXAR_CLIENT_ID,
       client_secret: process.env.NEXAR_CLIENT_SECRET,
       grant_type: "client_credentials",
-      scope: "supply"
+      scope: "Supply"
     }),
   });
   const data = await res.json();
