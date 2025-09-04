@@ -58,8 +58,23 @@ async function fetchPart(mpn, token) {
   return results[0]?.part || null;
 }
 
+// --- Flatten specs for GPT ---
+function flattenSpecs(specs) {
+  return (specs || []).map(s => `${s.attribute?.name || "Unknown"}: ${s.displayValue || "N/A"}`).join("\n");
+}
+
 // --- Generate comparison table via GPT-4o ---
 async function getComparisonTable(partA, partB) {
+  const prompt = `
+Compare the following two electronic parts and produce a Markdown table highlighting similarities and differences.
+
+Part A (${partA.mpn}, ${partA.manufacturer.name}):
+${flattenSpecs(partA.specs)}
+
+Part B (${partB.mpn}, ${partB.manufacturer.name}):
+${flattenSpecs(partB.specs)}
+  `;
+
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -71,16 +86,7 @@ async function getComparisonTable(partA, partB) {
         model: "gpt-4o",
         messages: [
           { role: "system", content: "You are a helpful assistant that compares electronic components." },
-          {
-            role: "user",
-            content: `Compare the following two parts and produce a Markdown table highlighting similarities and differences.
-
-Part A (${partA.mpn}, ${partA.manufacturer.name}):
-${JSON.stringify(partA.specs, null, 2)}
-
-Part B (${partB.mpn}, ${partB.manufacturer.name}):
-${JSON.stringify(partB.specs, null, 2)}`
-          }
+          { role: "user", content: prompt }
         ],
         temperature: 0.2
       }),
@@ -95,6 +101,7 @@ ${JSON.stringify(partB.specs, null, 2)}`
   }
 }
 
+// --- Netlify handler ---
 exports.handler = async (event) => {
   const headers = {
     "Access-Control-Allow-Origin": "*",
