@@ -85,10 +85,9 @@ exports.handler = async (event, context) => {
 2. Alternatives Search. Use short description, functionality and package of the original part to search for altnernate parts.
 • Identify 3 Alternatives:
   - From reputable manufacturers (e.g., TI, ADI, NXP, ON Semi, Microchip)
+  - Alternate part must not be from the same manufacturer as the original part. **important**
   - Prioritize parts that are functionally equivalent and package-compatible
-  - Hint: Sometimes alternates will have similar part numbers. For instance, STTS2004B2DN3F is alternate for AT30TSE004A. Both have 004 in their part number. Use this information to find alternates. 
 • Industry-Preferred Equivalents: Always include known industry-preferred equivalents if they meet functional and package criteria.
-• Package Variant Awareness: Check if multiple package variants exist (e.g., SOIC, TSSOP). Include compatible variants even if not listed in the original query.
 • Verification Requirements:
   - Confirm lifecycle status (Active, NRND, Last Time Buy)
   - Verify package type, pinout, and core electrical specs from datasheet
@@ -101,7 +100,7 @@ exports.handler = async (event, context) => {
    - Part number
    - Brief description of key specifications. Be sure to include the package type and verify it from the manufacturer's datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.
    - Any notable differences from the original part
-   - Manufacturer name if known. Do not limit to manufacturer of original part.
+   - Manufacturer name if known. 
    - List if the alternate part matches the functionality and the package of the original part
    - Price per Unit (with link)
    - Confirmed Package Type (from datasheet ordering code + at least one distributor listing). Cite exact table/section or distributor field. If not verifiable, state “Package type cannot be confirmed” and exclude.
