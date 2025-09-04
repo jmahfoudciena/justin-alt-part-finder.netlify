@@ -109,7 +109,7 @@ Only use verified info from datasheets, highlight uncertainties, and be extremel
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt }
           ],
-          max_tokens: 4096,
+          max_tokens: 16000,
           temperature: 0.2
         })
       });
