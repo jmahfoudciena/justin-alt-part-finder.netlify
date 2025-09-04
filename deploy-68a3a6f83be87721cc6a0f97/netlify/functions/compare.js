@@ -1,145 +1,193 @@
-const fetch = require('node-fetch');
 const { marked } = require('marked');
-const pdfParse = require('pdf-parse');
 
+// Configure marked for security and proper rendering
 marked.setOptions({
-  breaks: true,
-  gfm: true,
-  sanitize: false,
-  headerIds: true,
-  mangle: false
+	breaks: true,
+	gfm: true,
+	sanitize: false,
+	headerIds: true,
+	mangle: false
 });
 
-// Google search helper (PDFs only)
-async function googleSearch(partNumber) {
-  const googleKey = process.env.GOOGLE_API_KEY;
-  const googleCx = process.env.GOOGLE_CX;
-  if (!googleKey || !googleCx) throw new Error('Missing GOOGLE_API_KEY or GOOGLE_CX');
+exports.handler = async (event, context) => {
+	// Handle CORS
+	const headers = {
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Headers': 'Content-Type',
+		'Access-Control-Allow-Methods': 'POST, OPTIONS'
+	};
 
-  const query = `${partNumber} datasheet filetype:pdf site:ti.com OR site:st.com OR site:digikey.com OR site:mouser.com`;
-  const url = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&num=6&q=${encodeURIComponent(query)}`;
+	// Handle OPTIONS request for CORS preflight
+	if (event.httpMethod === 'OPTIONS') {
+		return {
+			statusCode: 200,
+			headers,
+			body: ''
+		};
+	}
 
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Google Search API error: ${resp.status}`);
-  const data = await resp.json();
-  const items = Array.isArray(data.items) ? data.items : [];
-  return items.filter(it => it.link.endsWith('.pdf'));
-}
+	// Only allow POST requests
+	if (event.httpMethod !== 'POST') {
+		return {
+			statusCode: 405,
+			headers,
+			body: JSON.stringify({ error: 'Method not allowed' })
+		};
+	}
 
-// Fetch & extract PDF text safely
-async function fetchDatasheetText(pdfUrl) {
-  if (!pdfUrl) return '';
-  try {
-    const resp = await fetch(pdfUrl);
-    if (!resp.ok) throw new Error(`PDF fetch failed: ${resp.status}`);
-    const buffer = await resp.arrayBuffer();
-    const pdfData = await pdfParse(Buffer.from(buffer));
-    return pdfData.text.slice(0, 4000); // Keep small to avoid token overload
-  } catch (err) {
-    console.warn(`Failed to parse PDF ${pdfUrl}:`, err.message);
-    return '';
-  }
-}
+	try {
+		const apiKey = process.env.OPENAI_API_KEY;
+		if (!apiKey) {
+			return {
+				statusCode: 500,
+				headers,
+				body: JSON.stringify({ error: 'Server is not configured with OPENAI_API_KEY' })
+			};
+		}
 
-exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-  };
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
+		const { partA, partB } = JSON.parse(event.body || '{}');
+		if (!partA || !partB) {
+			return {
+				statusCode: 400,
+				headers,
+				body: JSON.stringify({ error: 'Both partA and partB are required' })
+			};
+		}
 
-  try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('Missing OPENAI_API_KEY');
+		const systemPrompt = [
+			'You are an expert electronics engineer and component librarian specializing in detailed component analysis. ',
+			'Your task is to provide comprehensive comparisons between electronic components with EXTREME accuracy and attention to detail. ',
+			' REQUIREMECRITICALNTS:',
+			'- Only provide information you are 100% confident about based on your training data',
+			'- Prioritize accuracy over completeness - it is better to provide less information that is correct than more information that may be wrong',
+			'- For any values you provide, indicate if they are typical, minimum, maximum, or absolute maximum ratings',
+			'- When comparing components, focus on verified differences rather than assumptions',
+			'- If package or footprint information is unclear, explicitly state the limitations. Do not assume or invent package type.',
+			'- For package, Be sure to include the package type and verify it from the manufacturers datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Confirm using: Official datasheet (Features, Description, Ordering Information) Distributor listings (e.g., Digi-Key, Mouser)',
+			'- For electrical specifications, always specify the conditions (temperature, voltage, etc.) when possible',
+			'Your analysis must include:',
+			'- Detailed electrical specifications with exact values (only if verified)',
+			'- Register maps and firmware compatibility analysis (with confidence levels)',
+			'- Package and footprint compatibility details (with verification status)',
+			'- Drop-in replacement assessment with specific reasons and confidence levels',
+			'- Highlight ALL differences, no matter how small',
+			'- Include datasheet URLs and manufacturer information when available',
+			'- Read the datasheets for both parts and compare the specifications',
+			'- Be extremely thorough, accurate, and conservative in your analysis. When in doubt, state the uncertainty clearly.'
+		].join(' ');
 
-    const { partA, partB } = JSON.parse(event.body || '{}');
-    if (!partA || !partB) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Both partA and partB are required' }) };
+		const userPrompt = `Compare these two electronic components: "${partA}" vs "${partB}".
 
-    // Search PDFs
-    const [searchA, searchB] = await Promise.all([googleSearch(partA), googleSearch(partB)]);
-    const pdfA = searchA[0]?.link || '';
-    const pdfB = searchB[0]?.link || '';
-    console.log('PDF URLs:', pdfA, pdfB);
+Provide a comprehensive analysis including:
 
-    // Extract datasheet text
-    const [textA, textB] = await Promise.all([fetchDatasheetText(pdfA), fetchDatasheetText(pdfB)]);
-    console.log('Extracted text lengths:', textA.length, textB.length);
+1. **OVERVIEW TABLE** - Create a markdown table with these columns:
+   - Specification Category
+   - ${partA} Value
+   - ${partB} Value
+   - Difference (highlight in bold if significant)
+   - Impact Assessment
+   - Function and application of each part.  
+   - High-level block diagram summary (if available).  
+   - Notable differences in intended use.  
 
-    // Prepare prompt
-    const systemPrompt = "You are an expert electronics engineer and component librarian specializing in detailed component analysis.";
-    const userPrompt = `
-Compare **${partA}** vs **${partB}**.
+2. **ELECTRICAL SPECIFICATIONS** - Create a markdown table with these columns:
+   - Specification
+   - ${partA} Value
+   - ${partB} Value
+   Include: Voltage ranges (min/max/typical), Current ratings (input/output/supply), Power dissipation, Thermal characteristics, Frequency/speed specifications, Memory sizes (if applicable)
 
-PDF Datasheets:
-${partA}: ${pdfA}
-${partB}: ${pdfB}
+3. **REGISTER/FIRMWARE COMPATIBILITY** - Create a markdown table with these columns:
+   - Compatibility Aspect
+   - ${partA} Details
+   - ${partB} Details
+   - Register number in hex and register name and function all registers if applicable
+   Include: Register map differences, Firmware compatibility level, Programming differences, Boot sequence variations, Memory organization
 
-Extracted datasheet text:
-${partA}:
-${textA}
+4. **PACKAGE & FOOTPRINT** - Create a markdown table with these columns:
+   - Physical Characteristic
+   - ${partA} Specification
+   - ${partB} Specification
+   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Operating temperature range. Side-by-side pinout comparison:  
+       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B. List all pins.  
+       ◦ Explicitly mark mismatches.  
+	   ◦ This information should be taken out of manufactuer datasheet . Do not assume. Never invent. 
 
-${partB}:
-${textB}
+5. **DROP-IN COMPATIBILITY ASSESSMENT**:
+   - Overall compatibility score (0-100%)
+   - Specific reasons for incompatibility
+   - Required modifications for replacement
+   - Risk assessment
 
-Provide:
-1. Overview table
-2. Electrical specs
-3. Register/Firmware comparison
-4. Package & footprint (pinouts, mismatches)
-5. Drop-in compatibility assessment
-6. Recommendations
+6. **RECOMMENDATIONS**:
+   - When to use each part
+   - Migration strategies
+   - Alternative suggestions
 
-Only use verified info from datasheets, highlight uncertainties, and be extremely accurate.
-`;
+**CRITICAL ACCURACY REQUIREMENTS:**
+- Only provide specifications you are 100% confident about
+- For electrical values, always specify if they are min/max/typical/absolute max
+- Include confidence levels for each comparison section
+- When in doubt about compatibility, state the uncertainty clearly
 
-    // Call OpenAI
-    let openaiData;
-    try {
-      const resp = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          max_tokens: 16000,
-          temperature: 0.2
-        })
-      });
-      openaiData = await resp.json();
-    } catch (err) {
-      console.error('OpenAI fetch error:', err);
-      return { statusCode: 502, headers, body: JSON.stringify({ error: 'OpenAI fetch failed' }) };
-    }
+Format the response in clean markdown with proper tables, code blocks for ASCII art, and ensure all differences are clearly highlighted. Be extremely detailed, thorough, and ACCURATE in your analysis. Prioritize correctness over completeness.`;
 
-    const markdownContent = openaiData?.choices?.[0]?.message?.content || '';
-    if (!markdownContent) return { statusCode: 502, headers, body: JSON.stringify({ error: 'Empty response from model' }) };
+		const response = await fetch('https://api.openai.com/v1/chat/completions', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Bearer ${apiKey}`
+			},
+			body: JSON.stringify({
+				model: 'gpt-4o',
+				messages: [
+					{ role: 'system', content: systemPrompt },
+					{ role: 'user', content: userPrompt }
+				],
+				max_tokens: 4096,
+				temperature: 0.2
+			})
+		});
 
-    const htmlContent = marked(markdownContent)
-      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
-      .replace(/<table/g, '<table class="comparison-table"')
-      .replace(/<tr/g, '<tr class="comparison-row"')
-      .replace(/<td/g, '<td class="comparison-cell"')
-      .replace(/<th/g, '<th class="comparison-header"');
+		if (!response.ok) {
+			const err = await response.json().catch(() => ({}));
+			return {
+				statusCode: response.status,
+				headers,
+				body: JSON.stringify({ error: err.error?.message || 'OpenAI API error' })
+			};
+		}
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        html: htmlContent,
-        raw: markdownContent,
-        datasheetLinks: { partA: pdfA, partB: pdfB }
-      })
-    };
-  } catch (err) {
-    console.error('Function error:', err);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message || 'Server error' }) };
-  }
+		const data = await response.json();
+		const markdownContent = data?.choices?.[0]?.message?.content || '';
+		if (!markdownContent) {
+			return {
+				statusCode: 502,
+				headers,
+				body: JSON.stringify({ error: 'Empty response from model' })
+			};
+		}
+
+		// Convert markdown to HTML
+		const htmlContent = marked(markdownContent);
+		
+		// Enhanced safety: strip script tags and add custom CSS classes
+		const safeHtml = htmlContent
+			.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+			.replace(/<table/g, '<table class="comparison-table"')
+			.replace(/<tr/g, '<tr class="comparison-row"')
+			.replace(/<td/g, '<td class="comparison-cell"')
+			.replace(/<th/g, '<th class="comparison-header"');
+
+		return {
+			statusCode: 200,
+			headers,
+			body: JSON.stringify({ html: safeHtml })
+		};
+	} catch (error) {
+		return {
+			statusCode: 500,
+			headers,
+			body: JSON.stringify({ error: error.message || 'Server error' })
+		};
+	}
 };
