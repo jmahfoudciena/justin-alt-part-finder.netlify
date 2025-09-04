@@ -9,7 +9,7 @@ async function getNexarToken() {
       client_id: process.env.NEXAR_CLIENT_ID,
       client_secret: process.env.NEXAR_CLIENT_SECRET,
       grant_type: "client_credentials",
-      scope: "supply.domain"
+      scope: "supply.domain",
     }),
   });
 
@@ -45,12 +45,6 @@ async function fetchPart(mpn, token) {
   });
 
   const data = await res.json();
-  console.log(`Nexar response for ${mpn}:`, JSON.stringify(data, null, 2));
-
-  if (data.errors) {
-    console.error(`GraphQL errors for ${mpn}:`, data.errors);
-    return null;
-  }
 
   const results = data?.data?.supSearchMpn?.results;
   if (!results || results.length === 0) return null;
@@ -60,7 +54,9 @@ async function fetchPart(mpn, token) {
 
 // --- Flatten specs for GPT ---
 function flattenSpecs(specs) {
-  return (specs || []).map(s => `${s.attribute?.name || "Unknown"}: ${s.displayValue || "N/A"}`).join("\n");
+  return (specs || [])
+    .map((s) => `${s.attribute?.name || "Unknown"}: ${s.displayValue || "N/A"}`)
+    .join("\n");
 }
 
 // --- Generate comparison table via GPT-4o ---
@@ -75,30 +71,24 @@ Part B (${partB.mpn}, ${partB.manufacturer.name}):
 ${flattenSpecs(partB.specs)}
   `;
 
-  try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a helpful assistant that compares electronic components." },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.2
-      }),
-    });
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are a helpful assistant that compares electronic components." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
+    }),
+  });
 
-    const data = await res.json();
-    console.log("OpenAI response:", JSON.stringify(data, null, 2));
-    return data.choices?.[0]?.message?.content || "No table generated.";
-  } catch (err) {
-    console.error("OpenAI request failed:", err);
-    return "Error generating comparison table";
-  }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || "No table generated.";
 }
 
 // --- Netlify handler ---
@@ -106,6 +96,7 @@ exports.handler = async (event) => {
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
+    "Content-Type": "text/markdown",
   };
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers };
@@ -117,37 +108,31 @@ exports.handler = async (event) => {
         : JSON.parse(event.body || "{}");
 
     if (!partANum || !partBNum) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing partA or partB" }) };
+      return { statusCode: 400, headers, body: "Missing partA or partB" };
     }
 
     const token = await getNexarToken();
 
-    // Fetch each part individually
     const partA = await fetchPart(partANum, token);
     const partB = await fetchPart(partBNum, token);
 
-    if (!partA && !partB) {
-      return { statusCode: 404, headers, body: JSON.stringify({ error: "Neither part found" }) };
-    }
-
     if (!partA || !partB) {
       return {
-        statusCode: 206, // Partial content
+        statusCode: 404,
         headers,
-        body: JSON.stringify({ error: "Only one part found", partA, partB }),
+        body: "One or both parts not found",
       };
     }
 
-    // Generate comparison table via GPT-4o
     const comparisonTable = await getComparisonTable(partA, partB);
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ partA, partB, comparisonTable }),
+      body: comparisonTable,
     };
   } catch (err) {
     console.error("Full error:", err);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "Server error", details: err.message }) };
+    return { statusCode: 500, headers, body: "Server error: " + err.message };
   }
 };
