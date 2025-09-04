@@ -1,7 +1,26 @@
-// netlify/functions/compareParts.js
 const fetch = require("node-fetch");
 
-exports.handler = async (event, context) => {
+// Helper: Get Nexar OAuth2 access token
+async function getNexarToken() {
+  const res = await fetch("https://identity.nexar.com/connect/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.NEXAR_CLIENT_ID,
+      client_secret: process.env.NEXAR_CLIENT_SECRET,
+      grant_type: "client_credentials",
+      scope: "sup.read"
+    }),
+  });
+
+  const data = await res.json();
+  if (!data.access_token) {
+    throw new Error("Failed to get Nexar access token: " + JSON.stringify(data));
+  }
+  return data.access_token;
+}
+
+exports.handler = async (event) => {
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -12,17 +31,11 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // Parse query params or JSON body
-    let partA, partB;
-    if (event.httpMethod === "GET") {
-      const params = event.queryStringParameters;
-      partA = params.partA;
-      partB = params.partB;
-    } else {
-      const body = JSON.parse(event.body || "{}");
-      partA = body.partA;
-      partB = body.partB;
-    }
+    // Get input
+    const { partA, partB } =
+      event.httpMethod === "GET"
+        ? event.queryStringParameters
+        : JSON.parse(event.body || "{}");
 
     if (!partA || !partB) {
       return {
@@ -32,104 +45,59 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // GraphQL query for Nexar API (Octopart)
+    // Get token
+    const token = await getNexarToken();
+
+    // GraphQL query
     const query = `
       query getParts($mpns: [String!]!) {
-        supSearchMpn(q: { mpn_or_sku: $mpns }) {
-          hits {
-            mpn
-            manufacturer {
-              name
-            }
-            specs {
-              attribute {
+        supSearch(q: { mpn_or_sku: $mpns }) {
+          results {
+            part {
+              mpn
+              manufacturer {
                 name
               }
-              display_value
+              specs {
+                attribute {
+                  name
+                }
+                display_value
+              }
             }
           }
         }
       }
     `;
 
-    const response = await fetch("https://api.nexar.com/graphql", {
+    // Call Nexar
+    const res = await fetch("https://api.nexar.com/graphql", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.NEXAR_API_KEY}`,
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        query,
-        variables: { mpns: [partA, partB] },
-      }),
+      body: JSON.stringify({ query, variables: { mpns: [partA, partB] } }),
     });
 
-    const data = await response.json();
-    if (!data || !data.data) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: "Invalid response from Nexar API", details: data }),
-      };
-    }
+    const data = await res.json();
 
-    const hits = data.data.supSearchMpn.hits;
-    if (!hits || hits.length < 2) {
+    const parts = data?.data?.supSearch?.results?.map((r) => r.part) || [];
+    if (parts.length < 2) {
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({ error: "One or both parts not found" }),
+        body: JSON.stringify({
+          error: "One or both parts not found",
+          response: data,
+        }),
       };
     }
-
-    // Extract part data
-    const partData = {};
-    hits.forEach((hit) => {
-      partData[hit.mpn] = {
-        manufacturer: hit.manufacturer?.name || "Unknown",
-        specs: hit.specs.map((s) => ({
-          name: s.attribute?.name,
-          value: s.display_value,
-        })),
-      };
-    });
-
-    // Convert specs into key-value maps
-    const specsA = Object.fromEntries(
-      partData[partA].specs.map((s) => [s.name, s.value])
-    );
-    const specsB = Object.fromEntries(
-      partData[partB].specs.map((s) => [s.name, s.value])
-    );
-
-    // Find similarities and differences
-    const similarities = [];
-    const differences = [];
-
-    const allKeys = new Set([...Object.keys(specsA), ...Object.keys(specsB)]);
-    allKeys.forEach((key) => {
-      const valA = specsA[key];
-      const valB = specsB[key];
-      if (valA && valB) {
-        if (valA === valB) {
-          similarities.push({ attribute: key, value: valA });
-        } else {
-          differences.push({ attribute: key, partA: valA, partB: valB });
-        }
-      } else {
-        differences.push({ attribute: key, partA: valA || "N/A", partB: valB || "N/A" });
-      }
-    });
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        partA: partData[partA],
-        partB: partData[partB],
-        similarities,
-        differences,
-      }),
+      body: JSON.stringify({ parts }),
     };
   } catch (err) {
     console.error("Error:", err);
