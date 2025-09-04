@@ -9,7 +9,7 @@ async function getNexarToken() {
       client_id: process.env.NEXAR_CLIENT_ID,
       client_secret: process.env.NEXAR_CLIENT_SECRET,
       grant_type: "client_credentials",
-      scope: "supply.domain" // your valid Nexar scope
+      scope: "supply.domain"
     }),
   });
 
@@ -17,12 +17,38 @@ async function getNexarToken() {
   if (!data.access_token) {
     throw new Error("Failed to get Nexar access token: " + JSON.stringify(data));
   }
-
-  console.log("Nexar token acquired");
   return data.access_token;
 }
 
-// --- Helper: Call OpenAI to generate comparison table ---
+// --- Helper: Fetch a single part from Nexar ---
+async function fetchPart(mpn, token) {
+  const query = `
+    query getPart($mpn: String!) {
+      supSearchMpn(q: $mpn, limit: 1) {
+        results {
+          part {
+            mpn
+            manufacturer { name }
+            specs {
+              attribute { name id shortname }
+              displayValue
+            }
+          }
+        }
+      }
+    }`;
+
+  const res = await fetch("https://api.nexar.com/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ query, variables: { mpn } }),
+  });
+
+  const data = await res.json();
+  return data?.data?.supSearchMpn?.results?.[0]?.part || null;
+}
+
+// --- Helper: Call OpenAI GPT-4o to generate comparison table ---
 async function getComparisonTable(partA, partB) {
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -34,10 +60,7 @@ async function getComparisonTable(partA, partB) {
       body: JSON.stringify({
         model: "gpt-4o",
         messages: [
-          {
-            role: "system",
-            content: "You are a helpful assistant that compares electronic components."
-          },
+          { role: "system", content: "You are a helpful assistant that compares electronic components." },
           {
             role: "user",
             content: `Compare the following two parts and produce a Markdown table highlighting similarities and differences.
@@ -70,82 +93,47 @@ exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers };
 
   try {
-    console.log("Event received:", event);
-
     const { partA: partANum, partB: partBNum } =
       event.httpMethod === "GET"
         ? event.queryStringParameters
         : JSON.parse(event.body || "{}");
 
     if (!partANum || !partBNum) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: "Missing partA or partB" }),
-      };
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing partA or partB" }) };
     }
 
-    console.log("Fetching Nexar token...");
     const token = await getNexarToken();
 
-    // --- GraphQL query using supSearchMpn ---
-    const query = `
-query getPart($mpn: String!) {
-  supSearchMpn(q: $mpn, limit: 1) {
-    results {
-      part {
-        mpn
-        manufacturer { name }
-        specs {
-          attribute { name id shortname }
-          displayValue
-        }
-      }
+    // Fetch parts individually
+    const partA = await fetchPart(partANum, token);
+    const partB = await fetchPart(partBNum, token);
+
+    if (!partA && !partB) {
+      return { statusCode: 404, headers, body: JSON.stringify({ error: "Neither part found" }) };
     }
-  }
-}`;
 
-    console.log("Querying Nexar GraphQL...");
-    const res = await fetch("https://api.nexar.com/graphql", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ query, variables: { mpns: [partANum, partBNum], limit: 5 } }),
-    });
-
-    const data = await res.json();
-    console.log("Nexar response:", JSON.stringify(data, null, 2));
-
-    const parts = data?.data?.supSearchMpn?.results?.map(r => r.part) || [];
-
-    if (!parts || parts.length < 2) {
+    if (!partA || !partB) {
       return {
-        statusCode: 404,
+        statusCode: 206, // Partial content
         headers,
-        body: JSON.stringify({ error: "One or both parts not found", response: data }),
+        body: JSON.stringify({
+          error: "Only one part found",
+          partA,
+          partB
+        }),
       };
     }
 
-    const partA = parts[0];
-    const partB = parts[1];
-
-    console.log("Generating comparison table via OpenAI...");
+    // Generate comparison table
     const comparisonTable = await getComparisonTable(partA, partB);
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        partA,
-        partB,
-        comparisonTable
-      }),
+      body: JSON.stringify({ partA, partB, comparisonTable }),
     };
   } catch (err) {
     console.error("Full error:", err);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: "Server error", details: err.message }),
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "Server error", details: err.message }) };
   }
 };
