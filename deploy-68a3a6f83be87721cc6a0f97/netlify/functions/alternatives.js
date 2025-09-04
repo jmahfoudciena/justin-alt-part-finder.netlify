@@ -68,25 +68,21 @@ exports.handler = async (event, context) => {
 
     // 2) OpenAI prompt
     const userPrompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
-	Use the following web search results as context:${searchSummary}
- 	Follow these requirements carefully:
+	Use the following web search results as context for the original part only:${searchSummary}
+ 	
+  Follow these requirements carefully:
 1. Original Part Verification
-• Short Description: Provide a concise summary of the original component’s function and key specifications.
-• Package Type Verification:
-  - You must confirm the package type using:
-		Authorized Distributors 
-        - Use Digi-Key
-       	- Verify BOTH “Package / Case” AND “Supplier Device Package.”
-       	- Extract the package type, pin count, and dimensions.
+• Short Description: Provide a concise summary of the original component’s function and key specifications Using the following web search results as context for the original part only:${searchSummary}
+• Package Type Verification Using the following web search results as context for the original part only:${searchSummary}:
  No assumptions.
   - Consistency Rules:
     - Do not assume family parts share the same package; only confirm from “Package / Case” AND “Supplier Device Package”.
     - Do not invent, infer, or guess.
-• Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
-• Pinout Verification: Confirm pinout from datasheet.
-• Block Diagram Summary: Analyze internal functional blocks (e.g., PLL, MUX, Buffers, ADC, interfaces). Cite datasheet section.
-• Price & Lifecycle: Provide current unit price from Digi-Key or Mouser. Confirm lifecycle status (Active, NRND, Last Time Buy).
-2. Alternatives Search
+• Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Using the following web search results as context for the original part only:${searchSummary}.
+• Pinout Verification: Confirm pinout from datasheet Using the following web search results as context for the original part only:${searchSummary}.
+• Block Diagram Summary: Analyze internal functional blocks (e.g., PLL, MUX, Buffers, ADC, interfaces). Using the following web search results as context for the original part only:${searchSummary}.
+• Price & Lifecycle: Provide current unit price from Digi-Key or Mouser. Confirm lifecycle status (Active, NRND, Last Time Buy) Using the following web search results as context for the original part only:${searchSummary}.
+2. Alternatives Search. Use short description, functionality and package of the original part to search for altnernate parts.
 • Identify 3 Alternatives:
   - From reputable manufacturers (e.g., TI, ADI, NXP, ON Semi, Microchip)
   - Prioritize parts that are functionally equivalent and package-compatible
