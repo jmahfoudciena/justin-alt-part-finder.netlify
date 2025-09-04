@@ -1,6 +1,7 @@
+const fetch = require('node-fetch');
 const { marked } = require('marked');
 
-// Configure marked for security and proper rendering
+// Configure marked
 marked.setOptions({
 	breaks: true,
 	gfm: true,
@@ -9,24 +10,47 @@ marked.setOptions({
 	mangle: false
 });
 
+// Google Custom Search helper
+async function googleSearch(partNumber) {
+	const googleKey = process.env.GOOGLE_API_KEY;
+	const googleCx = process.env.GOOGLE_CX;
+
+	if (!googleKey || !googleCx) {
+		throw new Error('Missing GOOGLE_API_KEY or GOOGLE_CX');
+	}
+
+	const query = `${partNumber} datasheet OR site:digikey.com OR site:mouser.com OR site:arrow.com OR site:avnet.com OR site:ti.com filetype:pdf`;
+	const url = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&num=6&q=${encodeURIComponent(
+		query
+	)}`;
+
+	const resp = await fetch(url);
+	if (!resp.ok) {
+		const text = await resp.text().catch(() => '');
+		throw new Error(`Google Search API error: ${resp.status} ${text}`);
+	}
+
+	const data = await resp.json();
+	const items = Array.isArray(data.items) ? data.items : [];
+	return items.map(it => ({
+		title: it.title,
+		link: it.link,
+		snippet: it.snippet || ''
+	}));
+}
+
 exports.handler = async (event, context) => {
-	// Handle CORS
+	// CORS
 	const headers = {
 		'Access-Control-Allow-Origin': '*',
 		'Access-Control-Allow-Headers': 'Content-Type',
 		'Access-Control-Allow-Methods': 'POST, OPTIONS'
 	};
 
-	// Handle OPTIONS request for CORS preflight
 	if (event.httpMethod === 'OPTIONS') {
-		return {
-			statusCode: 200,
-			headers,
-			body: ''
-		};
+		return { statusCode: 200, headers, body: '' };
 	}
 
-	// Only allow POST requests
 	if (event.httpMethod !== 'POST') {
 		return {
 			statusCode: 405,
@@ -41,7 +65,7 @@ exports.handler = async (event, context) => {
 			return {
 				statusCode: 500,
 				headers,
-				body: JSON.stringify({ error: 'Server is not configured with OPENAI_API_KEY' })
+				body: JSON.stringify({ error: 'Missing OPENAI_API_KEY' })
 			};
 		}
 
@@ -54,88 +78,72 @@ exports.handler = async (event, context) => {
 			};
 		}
 
-		const systemPrompt = [
-			'You are an expert electronics engineer and component librarian specializing in detailed component analysis. ',
-			'Your task is to provide comprehensive comparisons between electronic components with EXTREME accuracy and attention to detail. ',
-			' REQUIREMECRITICALNTS:',
-			'- Only provide information you are 100% confident about based on your training data',
-			'- Prioritize accuracy over completeness - it is better to provide less information that is correct than more information that may be wrong',
-			'- For any values you provide, indicate if they are typical, minimum, maximum, or absolute maximum ratings',
-			'- When comparing components, focus on verified differences rather than assumptions',
-			'- If package or footprint information is unclear, explicitly state the limitations. Do not assume or invent package type.',
-			'- For package, Be sure to include the package type and verify it from the manufacturers datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Confirm using: Official datasheet (Features, Description, Ordering Information) Distributor listings (e.g., Digi-Key, Mouser)',
-			'- For electrical specifications, always specify the conditions (temperature, voltage, etc.) when possible',
-			'Your analysis must include:',
-			'- Detailed electrical specifications with exact values (only if verified)',
-			'- Register maps and firmware compatibility analysis (with confidence levels)',
-			'- Package and footprint compatibility details (with verification status)',
-			'- Drop-in replacement assessment with specific reasons and confidence levels',
-			'- Highlight ALL differences, no matter how small',
-			'- Include datasheet URLs and manufacturer information when available',
-			'- Read the datasheets for both parts and compare the specifications',
-			'- Be extremely thorough, accurate, and conservative in your analysis. When in doubt, state the uncertainty clearly.'
-		].join(' ');
+		// 🔎 Google search for both parts
+		let searchA = [];
+		let searchB = [];
+		try {
+			searchA = await googleSearch(partA);
+		} catch (err) {
+			console.warn(`Google search failed for ${partA}:`, err.message);
+		}
+		try {
+			searchB = await googleSearch(partB);
+		} catch (err) {
+			console.warn(`Google search failed for ${partB}:`, err.message);
+		}
 
-		const userPrompt = `Compare these two electronic components: "${partA}" vs "${partB}".
+		// Format search results into markdown-like text
+		const formatResults = (label, results) =>
+			results.length
+				? results
+						.slice(0, 6)
+						.map(
+							(r, i) =>
+								`${label} Result ${i + 1}: ${r.title}\nURL: ${r.link}\n${r.snippet}`
+						)
+						.join('\n\n')
+				: `No search results found for ${label}.`;
 
-Provide a comprehensive analysis including:
+		const searchSummaryA = formatResults(partA, searchA);
+		const searchSummaryB = formatResults(partB, searchB);
 
-1. **OVERVIEW TABLE** - Create a markdown table with these columns:
-   - Specification Category
-   - ${partA} Value
-   - ${partB} Value
-   - Difference (highlight in bold if significant)
-   - Impact Assessment
-   - Function and application of each part.  
-   - High-level block diagram summary (if available).  
-   - Notable differences in intended use.  
+		// System and user prompts
+		const systemPrompt = `You are an expert electronics engineer and component librarian specializing in highly accurate component analysis and comparisons. Use only verified data from datasheets or distributor listings. If package or specs cannot be confirmed, explicitly state "Cannot be verified". Do not invent values.`;
 
-2. **ELECTRICAL SPECIFICATIONS** - Create a markdown table with these columns:
-   - Specification
-   - ${partA} Value
-   - ${partB} Value
-   Include: Voltage ranges (min/max/typical), Current ratings (input/output/supply), Power dissipation, Thermal characteristics, Frequency/speed specifications, Memory sizes (if applicable)
+		const userPrompt = `
+Compare these two electronic components: **${partA}** vs **${partB}**.
 
-3. **REGISTER/FIRMWARE COMPATIBILITY** - Create a markdown table with these columns:
-   - Compatibility Aspect
-   - ${partA} Details
-   - ${partB} Details
-   - Register number in hex and register name and function all registers if applicable
-   Include: Register map differences, Firmware compatibility level, Programming differences, Boot sequence variations, Memory organization
+Use the following web search results as context:
 
-4. **PACKAGE & FOOTPRINT** - Create a markdown table with these columns:
-   - Physical Characteristic
-   - ${partA} Specification
-   - ${partB} Specification
-   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Operating temperature range. Side-by-side pinout comparison:  
-       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B. List all pins.  
-       ◦ Explicitly mark mismatches.  
-	   ◦ This information should be taken out of manufactuer datasheet . Do not assume. Never invent. 
+### ${partA} Search Results:
+${searchSummaryA}
 
-5. **DROP-IN COMPATIBILITY ASSESSMENT**:
-   - Overall compatibility score (0-100%)
-   - Specific reasons for incompatibility
-   - Required modifications for replacement
-   - Risk assessment
+### ${partB} Search Results:
+${searchSummaryB}
 
-6. **RECOMMENDATIONS**:
-   - When to use each part
-   - Migration strategies
-   - Alternative suggestions
+Perform a detailed comparison including:
 
-**CRITICAL ACCURACY REQUIREMENTS:**
-- Only provide specifications you are 100% confident about
-- For electrical values, always specify if they are min/max/typical/absolute max
-- Include confidence levels for each comparison section
-- When in doubt about compatibility, state the uncertainty clearly
+1. Overview table (functions, applications, block diagram summary, notable use-case differences).  
+2. Electrical specifications (voltage, current, power, frequency, thermal, memory if applicable).  
+3. Register/firmware compatibility (register maps, programming differences, boot sequence, memory organization).  
+4. Package & footprint (dimensions, pinouts, mismatches, mounting requirements). Include full pinout table with mismatches marked.  
+5. Drop-in compatibility assessment (compatibility score, risks, required modifications).  
+6. Recommendations (when to use each part, migration strategies, alternative suggestions).  
 
-Format the response in clean markdown with proper tables, code blocks for ASCII art, and ensure all differences are clearly highlighted. Be extremely detailed, thorough, and ACCURATE in your analysis. Prioritize correctness over completeness.`;
+⚠️ **CRITICAL REQUIREMENTS**:  
+- Only include verified specs (cite datasheet/distributor if possible).  
+- Always specify conditions (min/max/typical/absolute max).  
+- Highlight mismatches in bold.  
+- State confidence levels.  
+- If data cannot be verified from search context, say so explicitly.  
+`;
 
+		// Call OpenAI
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				'Authorization': `Bearer ${apiKey}`
+				Authorization: `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
 				model: 'gpt-4o',
@@ -143,7 +151,7 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 					{ role: 'system', content: systemPrompt },
 					{ role: 'user', content: userPrompt }
 				],
-				max_tokens: 4096,
+				max_tokens: 8192,
 				temperature: 0.2
 			})
 		});
@@ -167,11 +175,8 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 			};
 		}
 
-		// Convert markdown to HTML
-		const htmlContent = marked(markdownContent);
-		
-		// Enhanced safety: strip script tags and add custom CSS classes
-		const safeHtml = htmlContent
+		// Convert markdown → HTML
+		const htmlContent = marked(markdownContent)
 			.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
 			.replace(/<table/g, '<table class="comparison-table"')
 			.replace(/<tr/g, '<tr class="comparison-row"')
@@ -181,7 +186,11 @@ Format the response in clean markdown with proper tables, code blocks for ASCII 
 		return {
 			statusCode: 200,
 			headers,
-			body: JSON.stringify({ html: safeHtml })
+			body: JSON.stringify({
+				html: htmlContent,
+				raw: markdownContent,
+				searchResults: { partA: searchA, partB: searchB }
+			})
 		};
 	} catch (error) {
 		return {
