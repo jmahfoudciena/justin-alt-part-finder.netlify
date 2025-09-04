@@ -12,12 +12,45 @@ async function getNexarToken() {
       scope: "sup.read"
     }),
   });
-
   const data = await res.json();
   if (!data.access_token) {
     throw new Error("Failed to get Nexar access token: " + JSON.stringify(data));
   }
   return data.access_token;
+}
+
+// Helper: Call OpenAI
+async function getComparisonTable(partA, partB) {
+  const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-5-mini", // or "gpt-4o-mini"
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful assistant that compares electronic components."
+        },
+        {
+          role: "user",
+          content: `Compare the following two parts and produce a Markdown table highlighting similarities and differences.
+
+Part A (${partA.mpn}, ${partA.manufacturer.name}):
+${JSON.stringify(partA.specs, null, 2)}
+
+Part B (${partB.mpn}, ${partB.manufacturer.name}):
+${JSON.stringify(partB.specs, null, 2)}`
+        }
+      ],
+      temperature: 0.2
+    }),
+  });
+
+  const data = await openaiRes.json();
+  return data.choices?.[0]?.message?.content || "No table generated.";
 }
 
 exports.handler = async (event) => {
@@ -26,18 +59,16 @@ exports.handler = async (event) => {
     "Access-Control-Allow-Headers": "Content-Type",
   };
 
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers };
-  }
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers };
 
   try {
     // Get input
-    const { partA, partB } =
+    const { partA: partANum, partB: partBNum } =
       event.httpMethod === "GET"
         ? event.queryStringParameters
         : JSON.parse(event.body || "{}");
 
-    if (!partA || !partB) {
+    if (!partANum || !partBNum) {
       return {
         statusCode: 400,
         headers,
@@ -45,7 +76,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Get token
+    // Nexar token
     const token = await getNexarToken();
 
     // GraphQL query
@@ -55,13 +86,9 @@ exports.handler = async (event) => {
           results {
             part {
               mpn
-              manufacturer {
-                name
-              }
+              manufacturer { name }
               specs {
-                attribute {
-                  name
-                }
+                attribute { name }
                 display_value
               }
             }
@@ -70,34 +97,37 @@ exports.handler = async (event) => {
       }
     `;
 
-    // Call Nexar
+    // Fetch parts from Nexar
     const res = await fetch("https://api.nexar.com/graphql", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ query, variables: { mpns: [partA, partB] } }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ query, variables: { mpns: [partANum, partBNum] } }),
     });
-
     const data = await res.json();
 
-    const parts = data?.data?.supSearch?.results?.map((r) => r.part) || [];
-    if (parts.length < 2) {
+    const parts = data?.data?.supSearch?.results?.map((r) => r.part);
+    if (!parts || parts.length < 2) {
       return {
         statusCode: 404,
         headers,
-        body: JSON.stringify({
-          error: "One or both parts not found",
-          response: data,
-        }),
+        body: JSON.stringify({ error: "One or both parts not found", response: data }),
       };
     }
+
+    const partA = parts[0];
+    const partB = parts[1];
+
+    // OpenAI comparison
+    const comparisonTable = await getComparisonTable(partA, partB);
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ parts }),
+      body: JSON.stringify({
+        partA,
+        partB,
+        comparisonTable
+      }),
     };
   } catch (err) {
     console.error("Error:", err);
