@@ -81,20 +81,31 @@ exports.handler = async (event) => {
 
     // GraphQL query
     const query = `
-      query getParts($mpns: [String!]!) {
-        supSearch(q: { mpn_or_sku: $mpns }) {
-          results {
-            part {
-              mpn
-              manufacturer { name }
-              specs {
-                attribute { name }
-                display_value
-              }
-            }
+      query getParts($mpns: [String!]!, $limit: Int!) {
+  supSearchMpn(
+    q: $mpns
+    limit: $limit
+  ) {
+    hits
+    results {
+      part {
+        mpn
+        manufacturer {
+          name
+        }
+        specs {
+          attribute {
+            name
+            id
+            shortname
           }
+          displayValue
         }
       }
+    }
+  }
+}
+
     `;
 
     // Fetch parts from Nexar
