@@ -47,15 +47,20 @@ async function fetchPart(mpn, token) {
   const data = await res.json();
   console.log(`Nexar response for ${mpn}:`, JSON.stringify(data, null, 2));
 
+  if (data.errors) {
+    console.error(`GraphQL errors for ${mpn}:`, data.errors);
+    return null;
+  }
+
   const results = data?.data?.supSearchMpn?.results;
-  return results?.[0]?.part || null;
+  if (!results || results.length === 0) return null;
+
+  return results[0]?.part || null;
 }
 
 // --- Flatten specs for GPT ---
 function flattenSpecs(specs) {
-  return (specs || [])
-    .map(s => `${s.attribute?.name || "Unknown"}: ${s.displayValue || "N/A"}`)
-    .join("\n");
+  return (specs || []).map(s => `${s.attribute?.name || "Unknown"}: ${s.displayValue || "N/A"}`).join("\n");
 }
 
 // --- Generate comparison table via GPT-4o ---
@@ -87,17 +92,9 @@ ${flattenSpecs(partB.specs)}
       }),
     });
 
-    // Parse safely
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (err) {
-      console.error("Failed to parse OpenAI response:", text);
-      return "Error generating comparison table";
-    }
-
-    return data?.choices?.[0]?.message?.content || "No table generated.";
+    const data = await res.json();
+    console.log("OpenAI response:", JSON.stringify(data, null, 2));
+    return data.choices?.[0]?.message?.content || "No table generated.";
   } catch (err) {
     console.error("OpenAI request failed:", err);
     return "Error generating comparison table";
@@ -144,21 +141,10 @@ exports.handler = async (event) => {
     // Generate comparison table via GPT-4o
     const comparisonTable = await getComparisonTable(partA, partB);
 
-    // Only return essential fields to avoid JSON.stringify errors
-    const safePart = (part) => ({
-      mpn: part.mpn,
-      manufacturer: part.manufacturer,
-      specs: part.specs
-    });
-
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        partA: safePart(partA),
-        partB: safePart(partB),
-        comparisonTable
-      }),
+      body: JSON.stringify({ partA, partB, comparisonTable }),
     };
   } catch (err) {
     console.error("Full error:", err);
