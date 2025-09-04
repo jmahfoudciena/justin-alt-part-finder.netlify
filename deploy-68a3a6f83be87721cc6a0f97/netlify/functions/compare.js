@@ -1,6 +1,6 @@
 const fetch = require("node-fetch");
 
-// --- Helper: Get Nexar OAuth2 access token ---
+// --- Get Nexar OAuth2 access token ---
 async function getNexarToken() {
   const res = await fetch("https://identity.nexar.com/connect/token", {
     method: "POST",
@@ -20,7 +20,7 @@ async function getNexarToken() {
   return data.access_token;
 }
 
-// --- Helper: Fetch a single part from Nexar ---
+// --- Fetch a single part from Nexar ---
 async function fetchPart(mpn, token) {
   const query = `
     query getPart($mpn: String!) {
@@ -47,28 +47,18 @@ async function fetchPart(mpn, token) {
   const data = await res.json();
   console.log(`Nexar response for ${mpn}:`, JSON.stringify(data, null, 2));
 
-  // Handle errors
   if (data.errors) {
     console.error(`GraphQL errors for ${mpn}:`, data.errors);
     return null;
   }
 
   const results = data?.data?.supSearchMpn?.results;
-  if (!results || results.length === 0) {
-    console.warn(`No results found for ${mpn}`);
-    return null;
-  }
+  if (!results || results.length === 0) return null;
 
-  const part = results[0]?.part;
-  if (!part) {
-    console.warn(`Part object missing for ${mpn}`);
-    return null;
-  }
-
-  return part;
+  return results[0]?.part || null;
 }
 
-// --- Helper: Generate comparison table via GPT-4o ---
+// --- Generate comparison table via GPT-4o ---
 async function getComparisonTable(partA, partB) {
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -137,11 +127,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 206, // Partial content
         headers,
-        body: JSON.stringify({
-          error: "Only one part found",
-          partA,
-          partB
-        }),
+        body: JSON.stringify({ error: "Only one part found", partA, partB }),
       };
     }
 
