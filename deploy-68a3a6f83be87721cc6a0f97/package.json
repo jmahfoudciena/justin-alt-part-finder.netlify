@@ -6,7 +6,8 @@
   "scripts": {
     "build": "echo 'No build step required for static files'",
     "dev": "netlify dev",
-    "start": "node server.js"
+    "start": "node server.js",
+    "analyze-pdf": "node scripts/pdfTest.js"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -15,12 +16,19 @@
     "node-fetch": "^2.7.0",
     "marked": "^9.1.6",
     "dotenv": "^16.4.5",
-    "cheerio": "^1.0.0-rc.12"
+    "cheerio": "^1.0.0-rc.12",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "netlify-cli": "^17.10.1"
   },
-  "keywords": ["electronics", "parts", "alternatives", "ai", "netlify"],
+  "keywords": [
+    "electronics",
+    "parts",
+    "alternatives",
+    "ai",
+    "netlify"
+  ],
   "author": "Your Company",
   "license": "MIT"
 }
