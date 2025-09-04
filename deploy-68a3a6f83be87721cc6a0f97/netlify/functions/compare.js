@@ -108,7 +108,28 @@ exports.handler = async (event, context) => {
 		const searchSummaryB = formatResults(partB, searchB);
 
 		// System and user prompts
-		const systemPrompt = `You are an expert electronics engineer and component librarian specializing in highly accurate component analysis and comparisons. Use only verified data from datasheets or distributor listings. If package or specs cannot be confirmed, explicitly state "Cannot be verified". Do not invent values.`;
+		const systemPrompt = [
+			'You are an expert electronics engineer and component librarian specializing in detailed component analysis. ',
+			'Your task is to provide comprehensive comparisons between electronic components with EXTREME accuracy and attention to detail. ',
+			' REQUIREMECRITICALNTS:',
+			'- Only provide information you are 100% confident about based on your training data',
+			'- Prioritize accuracy over completeness - it is better to provide less information that is correct than more information that may be wrong',
+			'- For any values you provide, indicate if they are typical, minimum, maximum, or absolute maximum ratings',
+			'- When comparing components, focus on verified differences rather than assumptions',
+			'- If package or footprint information is unclear, explicitly state the limitations. Do not assume or invent package type.',
+			'- For package, Be sure to include the package type and verify it from the manufacturers datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Confirm using: Official datasheet (Features, Description, Ordering Information) Distributor listings (e.g., Digi-Key, Mouser)',
+			'- For electrical specifications, always specify the conditions (temperature, voltage, etc.) when possible',
+			'Your analysis must include:',
+			'- Detailed electrical specifications with exact values (only if verified)',
+			'- Register maps and firmware compatibility analysis (with confidence levels)',
+			'- Package and footprint compatibility details (with verification status)',
+			'- Drop-in replacement assessment with specific reasons and confidence levels',
+			'- Highlight ALL differences, no matter how small',
+			'- Include datasheet URLs and manufacturer information when available',
+			'- Read the datasheets for both parts and compare the specifications',
+			'- Be extremely thorough, accurate, and conservative in your analysis. When in doubt, state the uncertainty clearly.'
+			
+		].join('');
 
 		const userPrompt = `
 Compare these two electronic components: **${partA}** vs **${partB}**.
@@ -121,22 +142,59 @@ ${searchSummaryA}
 ### ${partB} Search Results:
 ${searchSummaryB}
 
-Perform a detailed comparison including:
+Provide a comprehensive analysis including:
 
-1. Overview table (functions, applications, block diagram summary, notable use-case differences).  
-2. Electrical specifications (voltage, current, power, frequency, thermal, memory if applicable).  
-3. Register/firmware compatibility (register maps, programming differences, boot sequence, memory organization).  
-4. Package & footprint (dimensions, pinouts, mismatches, mounting requirements). Include full pinout table with mismatches marked.  
-5. Drop-in compatibility assessment (compatibility score, risks, required modifications).  
-6. Recommendations (when to use each part, migration strategies, alternative suggestions).  
+1. **OVERVIEW TABLE** - Create a markdown table with these columns:
+   - Specification Category
+   - ${partA} Value
+   - ${partB} Value
+   - Difference (highlight in bold if significant)
+   - Impact Assessment
+   - Function and application of each part.  
+   - High-level block diagram summary (if available).  
+   - Notable differences in intended use.  
 
-⚠️ **CRITICAL REQUIREMENTS**:  
-- Only include verified specs (cite datasheet/distributor if possible).  
-- Always specify conditions (min/max/typical/absolute max).  
-- Highlight mismatches in bold.  
-- State confidence levels.  
-- If data cannot be verified from search context, say so explicitly.  
-`;
+2. **ELECTRICAL SPECIFICATIONS** - Create a markdown table with these columns:
+   - Specification
+   - ${partA} Value
+   - ${partB} Value
+   Include: Voltage ranges (min/max/typical), Current ratings (input/output/supply), Power dissipation, Thermal characteristics, Frequency/speed specifications, Memory sizes (if applicable)
+
+3. **REGISTER/FIRMWARE COMPATIBILITY** - Create a markdown table with these columns:
+   - Compatibility Aspect
+   - ${partA} Details
+   - ${partB} Details
+   - Register number in hex and register name and function all registers if applicable
+   Include: Register map differences, Firmware compatibility level, Programming differences, Boot sequence variations, Memory organization
+
+4. **PACKAGE & FOOTPRINT** - Create a markdown table with these columns:
+   - Physical Characteristic
+   - ${partA} Specification
+   - ${partB} Specification
+   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Operating temperature range. Side-by-side pinout comparison:  
+       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B. List all pins.  
+       ◦ Explicitly mark mismatches.  
+	   ◦ This information should be taken out of manufactuer datasheet . Do not assume. Never invent. 
+
+5. **DROP-IN COMPATIBILITY ASSESSMENT**:
+   - Overall compatibility score (0-100%)
+   - Specific reasons for incompatibility
+   - Required modifications for replacement
+   - Risk assessment
+
+6. **RECOMMENDATIONS**:
+   - When to use each part
+   - Migration strategies
+   - Alternative suggestions
+
+**CRITICAL ACCURACY REQUIREMENTS:**
+- Only provide specifications you are 100% confident about
+- For electrical values, always specify if they are min/max/typical/absolute max
+- Include confidence levels for each comparison section
+- When in doubt about compatibility, state the uncertainty clearly
+
+Format the response in clean markdown with proper tables, code blocks for ASCII art, and ensure all differences are clearly highlighted. Be extremely detailed, thorough, and ACCURATE in your analysis. Prioritize correctness over completeness.`;
+
 
 		// Call OpenAI
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
