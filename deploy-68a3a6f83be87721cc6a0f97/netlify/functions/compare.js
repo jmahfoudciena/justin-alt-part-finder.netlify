@@ -1,153 +1,193 @@
-const fetch = require("node-fetch");
+const { marked } = require('marked');
 
-// --- Get Nexar OAuth2 access token ---
-async function getNexarToken() {
-  const res = await fetch("https://identity.nexar.com/connect/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: process.env.NEXAR_CLIENT_ID,
-      client_secret: process.env.NEXAR_CLIENT_SECRET,
-      grant_type: "client_credentials",
-      scope: "supply.domain"
-    }),
-  });
+// Configure marked for security and proper rendering
+marked.setOptions({
+	breaks: true,
+	gfm: true,
+	sanitize: false,
+	headerIds: true,
+	mangle: false
+});
 
-  const data = await res.json();
-  if (!data.access_token) {
-    throw new Error("Failed to get Nexar access token: " + JSON.stringify(data));
-  }
-  return data.access_token;
-}
+exports.handler = async (event, context) => {
+	// Handle CORS
+	const headers = {
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Headers': 'Content-Type',
+		'Access-Control-Allow-Methods': 'POST, OPTIONS'
+	};
 
-// --- Fetch a single part from Nexar ---
-async function fetchPart(mpn, token) {
-  const query = `
-    query getPart($mpn: String!) {
-      supSearchMpn(q: $mpn, limit: 1) {
-        results {
-          part {
-            mpn
-            manufacturer { name }
-            specs {
-              attribute { name id shortname }
-              displayValue
-            }
-          }
-        }
-      }
-    }`;
+	// Handle OPTIONS request for CORS preflight
+	if (event.httpMethod === 'OPTIONS') {
+		return {
+			statusCode: 200,
+			headers,
+			body: ''
+		};
+	}
 
-  const res = await fetch("https://api.nexar.com/graphql", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ query, variables: { mpn } }),
-  });
+	// Only allow POST requests
+	if (event.httpMethod !== 'POST') {
+		return {
+			statusCode: 405,
+			headers,
+			body: JSON.stringify({ error: 'Method not allowed' })
+		};
+	}
 
-  const data = await res.json();
-  console.log(`Nexar response for ${mpn}:`, JSON.stringify(data, null, 2));
+	try {
+		const apiKey = process.env.OPENAI_API_KEY;
+		if (!apiKey) {
+			return {
+				statusCode: 500,
+				headers,
+				body: JSON.stringify({ error: 'Server is not configured with OPENAI_API_KEY' })
+			};
+		}
 
-  if (data.errors) {
-    console.error(`GraphQL errors for ${mpn}:`, data.errors);
-    return null;
-  }
+		const { partA, partB } = JSON.parse(event.body || '{}');
+		if (!partA || !partB) {
+			return {
+				statusCode: 400,
+				headers,
+				body: JSON.stringify({ error: 'Both partA and partB are required' })
+			};
+		}
 
-  const results = data?.data?.supSearchMpn?.results;
-  if (!results || results.length === 0) return null;
+		const systemPrompt = [
+			'You are an expert electronics engineer and component librarian specializing in detailed component analysis. ',
+			'Your task is to provide comprehensive comparisons between electronic components with EXTREME accuracy and attention to detail. ',
+			' REQUIREMECRITICALNTS:',
+			'- Only provide information you are 100% confident about based on your training data',
+			'- Prioritize accuracy over completeness - it is better to provide less information that is correct than more information that may be wrong',
+			'- For any values you provide, indicate if they are typical, minimum, maximum, or absolute maximum ratings',
+			'- When comparing components, focus on verified differences rather than assumptions',
+			'- If package or footprint information is unclear, explicitly state the limitations. Do not assume or invent package type.',
+			'- For package, Be sure to include the package type and verify it from the manufacturers datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed. Confirm using: Official datasheet (Features, Description, Ordering Information) Distributor listings (e.g., Digi-Key, Mouser)',
+			'- For electrical specifications, always specify the conditions (temperature, voltage, etc.) when possible',
+			'Your analysis must include:',
+			'- Detailed electrical specifications with exact values (only if verified)',
+			'- Register maps and firmware compatibility analysis (with confidence levels)',
+			'- Package and footprint compatibility details (with verification status)',
+			'- Drop-in replacement assessment with specific reasons and confidence levels',
+			'- Highlight ALL differences, no matter how small',
+			'- Include datasheet URLs and manufacturer information when available',
+			'- Read the datasheets for both parts and compare the specifications',
+			'- Be extremely thorough, accurate, and conservative in your analysis. When in doubt, state the uncertainty clearly.'
+		].join(' ');
 
-  return results[0]?.part || null;
-}
+		const userPrompt = `Compare these two electronic components: "${partA}" vs "${partB}".
 
-// --- Flatten specs for GPT ---
-function flattenSpecs(specs) {
-  return (specs || []).map(s => `${s.attribute?.name || "Unknown"}: ${s.displayValue || "N/A"}`).join("\n");
-}
+Provide a comprehensive analysis including:
 
-// --- Generate comparison table via GPT-4o ---
-async function getComparisonTable(partA, partB) {
-  const prompt = `
-Compare the following two electronic parts and produce a Markdown table highlighting similarities and differences.
+1. **OVERVIEW TABLE** - Create a markdown table with these columns:
+   - Specification Category
+   - ${partA} Value
+   - ${partB} Value
+   - Difference (highlight in bold if significant)
+   - Impact Assessment
+   - Function and application of each part.  
+   - High-level block diagram summary (if available).  
+   - Notable differences in intended use.  
 
-Part A (${partA.mpn}, ${partA.manufacturer.name}):
-${flattenSpecs(partA.specs)}
+2. **ELECTRICAL SPECIFICATIONS** - Create a markdown table with these columns:
+   - Specification
+   - ${partA} Value
+   - ${partB} Value
+   Include: Voltage ranges (min/max/typical), Current ratings (input/output/supply), Power dissipation, Thermal characteristics, Frequency/speed specifications, Memory sizes (if applicable)
 
-Part B (${partB.mpn}, ${partB.manufacturer.name}):
-${flattenSpecs(partB.specs)}
-  `;
+3. **REGISTER/FIRMWARE COMPATIBILITY** - Create a markdown table with these columns:
+   - Compatibility Aspect
+   - ${partA} Details
+   - ${partB} Details
+   - Register number in hex and register name and function all registers if applicable
+   Include: Register map differences, Firmware compatibility level, Programming differences, Boot sequence variations, Memory organization
 
-  try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: "You are a helpful assistant that compares electronic components." },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.2
-      }),
-    });
+4. **PACKAGE & FOOTPRINT** - Create a markdown table with these columns:
+   - Physical Characteristic
+   - ${partA} Specification
+   - ${partB} Specification
+   Include: Package dimensions, Materials, Pin count and spacing, Mounting requirements, Thermal pad differences, Operating temperature range. Side-by-side pinout comparison:  
+       ◦ Table format listing Pin Number, Pin Name/Function for both Part A and Part B. List all pins.  
+       ◦ Explicitly mark mismatches.  
+	   ◦ This information should be taken out of manufactuer datasheet . Do not assume. Never invent. 
 
-    const data = await res.json();
-    console.log("OpenAI response:", JSON.stringify(data, null, 2));
-    return data.choices?.[0]?.message?.content || "No table generated.";
-  } catch (err) {
-    console.error("OpenAI request failed:", err);
-    return "Error generating comparison table";
-  }
-}
+5. **DROP-IN COMPATIBILITY ASSESSMENT**:
+   - Overall compatibility score (0-100%)
+   - Specific reasons for incompatibility
+   - Required modifications for replacement
+   - Risk assessment
 
-// --- Netlify handler ---
-exports.handler = async (event) => {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
+6. **RECOMMENDATIONS**:
+   - When to use each part
+   - Migration strategies
+   - Alternative suggestions
 
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers };
+**CRITICAL ACCURACY REQUIREMENTS:**
+- Only provide specifications you are 100% confident about
+- For electrical values, always specify if they are min/max/typical/absolute max
+- Include confidence levels for each comparison section
+- When in doubt about compatibility, state the uncertainty clearly
 
-  try {
-    const { partA: partANum, partB: partBNum } =
-      event.httpMethod === "GET"
-        ? event.queryStringParameters
-        : JSON.parse(event.body || "{}");
+Format the response in clean markdown with proper tables, code blocks for ASCII art, and ensure all differences are clearly highlighted. Be extremely detailed, thorough, and ACCURATE in your analysis. Prioritize correctness over completeness.`;
 
-    if (!partANum || !partBNum) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing partA or partB" }) };
-    }
+		const response = await fetch('https://api.openai.com/v1/chat/completions', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Bearer ${apiKey}`
+			},
+			body: JSON.stringify({
+				model: 'gpt-4o',
+				messages: [
+					{ role: 'system', content: systemPrompt },
+					{ role: 'user', content: userPrompt }
+				],
+				max_tokens: 4096,
+				temperature: 0.2
+			})
+		});
 
-    const token = await getNexarToken();
+		if (!response.ok) {
+			const err = await response.json().catch(() => ({}));
+			return {
+				statusCode: response.status,
+				headers,
+				body: JSON.stringify({ error: err.error?.message || 'OpenAI API error' })
+			};
+		}
 
-    // Fetch each part individually
-    const partA = await fetchPart(partANum, token);
-    const partB = await fetchPart(partBNum, token);
+		const data = await response.json();
+		const markdownContent = data?.choices?.[0]?.message?.content || '';
+		if (!markdownContent) {
+			return {
+				statusCode: 502,
+				headers,
+				body: JSON.stringify({ error: 'Empty response from model' })
+			};
+		}
 
-    if (!partA && !partB) {
-      return { statusCode: 404, headers, body: JSON.stringify({ error: "Neither part found" }) };
-    }
+		// Convert markdown to HTML
+		const htmlContent = marked(markdownContent);
+		
+		// Enhanced safety: strip script tags and add custom CSS classes
+		const safeHtml = htmlContent
+			.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+			.replace(/<table/g, '<table class="comparison-table"')
+			.replace(/<tr/g, '<tr class="comparison-row"')
+			.replace(/<td/g, '<td class="comparison-cell"')
+			.replace(/<th/g, '<th class="comparison-header"');
 
-    if (!partA || !partB) {
-      return {
-        statusCode: 206, // Partial content
-        headers,
-        body: JSON.stringify({ error: "Only one part found", partA, partB }),
-      };
-    }
-
-    // Generate comparison table via GPT-4o
-    const comparisonTable = await getComparisonTable(partA, partB);
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ partA, partB, comparisonTable }),
-    };
-  } catch (err) {
-    console.error("Full error:", err);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "Server error", details: err.message }) };
-  }
+		return {
+			statusCode: 200,
+			headers,
+			body: JSON.stringify({ html: safeHtml })
+		};
+	} catch (error) {
+		return {
+			statusCode: 500,
+			headers,
+			body: JSON.stringify({ error: error.message || 'Server error' })
+		};
+	}
 };
