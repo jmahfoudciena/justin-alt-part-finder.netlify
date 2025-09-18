@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 const { marked } = require('marked');
-require('dotenv').config();
+require('dotenv').config(); 
 
 // Configure marked
 marked.setOptions({
