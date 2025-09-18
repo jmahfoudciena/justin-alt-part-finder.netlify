@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 const { marked } = require('marked');
-require('dotenv').config(); 
+require('dotenv').config();
 
 // Configure marked
 marked.setOptions({
@@ -139,7 +139,7 @@ Ensure all information is accurate, cited from datasheets or distributor listing
           { role: 'system', content: 'You are a helpful electronics engineer specializing in finding component alternatives.' },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 8000
+        max_tokens: 16384
       })
     });
 
