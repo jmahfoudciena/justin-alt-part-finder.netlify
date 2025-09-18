@@ -1,93 +1,80 @@
-const fetch = require('node-fetch');
 const { marked } = require('marked');
-require('dotenv').config();
 
-// Configure marked
+// Configure marked for security and proper rendering
 marked.setOptions({
-  breaks: true,
-  gfm: true,
-  sanitize: false,
-  headerIds: true,
-  mangle: false
+	breaks: true,
+	gfm: true,
+	sanitize: false,
+	headerIds: true,
+	mangle: false
 });
 
-// Helper: Google Custom Search
-async function googleSearch(partNumber) {
-  const googleKey = process.env.GOOGLE_API_KEY;
-  const googleCx = process.env.GOOGLE_CX;
-  if (!googleKey || !googleCx) {
-    throw new Error('Missing GOOGLE_API_KEY or GOOGLE_CX');
-  }
-
-  const query = `${partNumber} datasheet OR site:digikey.com OR site:mouser.com OR site:arrow.com OR site:avnet.com OR site:ti.com filetype:pdf`;
-  const url = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&num=6&q=${encodeURIComponent(query)}`;
-
-  const resp = await fetch(url);
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => '');
-    throw new Error(`Google Search API error: ${resp.status} ${text}`);
-  }
-
-  const data = await resp.json();
-  const items = Array.isArray(data.items) ? data.items : [];
-  return items.map(it => ({
-    title: it.title,
-    link: it.link,
-    snippet: it.snippet || ''
-  }));
-}
-
-// Netlify Function handler
 exports.handler = async (event, context) => {
-  try {
-    if (event.httpMethod !== 'POST') {
-      return { statusCode: 405, body: 'Method Not Allowed' };
-    }
+	// Handle CORS
+	const headers = {
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Headers': 'Content-Type',
+		'Access-Control-Allow-Methods': 'POST, OPTIONS'
+	};
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return { statusCode: 500, body: 'Missing OPENAI_API_KEY' };
+	// Handle OPTIONS request for CORS preflight
+	if (event.httpMethod === 'OPTIONS') {
+		return {
+			statusCode: 200,
+			headers,
+			body: ''
+		};
+	}
 
-    const body = JSON.parse(event.body || '{}');
-    const { partNumber } = body;
-    if (!partNumber) return { statusCode: 400, body: 'partNumber is required' };
+	// Only allow POST requests
+	if (event.httpMethod !== 'POST') {
+		return {
+			statusCode: 405,
+			headers,
+			body: JSON.stringify({ error: 'Method not allowed' })
+		};
+	}
 
-    // 1) Google search
-    let searchItems = [];
-    let searchSummary = 'No search results found.';
-    try {
-      searchItems = await googleSearch(partNumber);
-      if (searchItems.length) {
-        searchSummary = searchItems
-          .slice(0, 6)
-          .map((r, i) => `${i + 1}. ${r.title}\nURL: ${r.link}\n${r.snippet}`)
-          .join('\n\n');
-      }
-    } catch (e) {
-      console.warn('Google search failed, continuing without results:', e.message);
-    }
+	try {
+		const apiKey = process.env.OPENAI_API_KEY;
+		if (!apiKey) {
+			return {
+				statusCode: 500,
+				headers,
+				body: JSON.stringify({ error: 'Server is not configured with OPENAI_API_KEY' })
+			};
+		}
 
-    // 2) OpenAI prompt
-    const userPrompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
-	Use the following web search results as context for the original part only:${searchSummary}
- 	
-  Follow these requirements carefully:
+		const { partNumber } = JSON.parse(event.body || '{}');
+		if (!partNumber) {
+			return {
+				statusCode: 400,
+				headers,
+				body: JSON.stringify({ error: 'Part number is required' })
+			};
+		}
+
+const prompt = `I need to find 3 alternative components for the electronic part number: ${partNumber}.
+
+Follow these requirements carefully:
+
 1. Original Part Verification
-• Short Description: Provide a concise summary of the original component’s function and key specifications Using the following web search results as context for the original part only:${searchSummary}
-• Package Type Verification Using the following web search results as context for the original part only:${searchSummary}:
- No assumptions.
-  - Consistency Rules:
-    - Do not assume family parts share the same package; only confirm from “Package / Case” AND “Supplier Device Package”.
-    - Do not invent, infer, or guess.
-• Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Using the following web search results as context for the original part only:${searchSummary}.
-• Pinout Verification: Confirm pinout from datasheet Using the following web search results as context for the original part only:${searchSummary}.
-• Block Diagram Summary: Analyze internal functional blocks (e.g., PLL, MUX, Buffers, ADC, interfaces). Using the following web search results as context for the original part only:${searchSummary}.
-• Price & Lifecycle: Provide current unit price from Digi-Key or Mouser. Confirm lifecycle status (Active, NRND, Last Time Buy) Using the following web search results as context for the original part only:${searchSummary}.
-2. Alternatives Search. Use short description, functionality and package of the original part to search for altnernate parts.
+• Short Description: Provide a concise summary of the original component’s function and key specifications.
+• Package Type Verification:
+  - Confirm using:
+    ◦ Official datasheet (Features, Description, Ordering Information)
+    ◦ Distributor listings (e.g., Digi-Key, Mouser)
+  - Do not assume or invent package type. Exclude if package cannot be confirmed.
+• Core Electrical Specs: Verify voltage, current, frequency, timing, and power from the datasheet. Cite relevant sections.
+• Pinout Verification: Confirm pinout from datasheet.
+• Block Diagram Summary: Analyze internal functional blocks (e.g., PLL, MUX, Buffers, ADC, interfaces). Cite datasheet section.
+• Price & Lifecycle: Provide current unit price from Digi-Key or Mouser. Confirm lifecycle status (Active, NRND, Last Time Buy).
+2. Alternatives Search
 • Identify 3 Alternatives:
   - From reputable manufacturers (e.g., TI, ADI, NXP, ON Semi, Microchip)
-  - Alternate part must not be from the same manufacturer as the original part. **important**
   - Prioritize parts that are functionally equivalent and package-compatible
 • Industry-Preferred Equivalents: Always include known industry-preferred equivalents if they meet functional and package criteria.
+• Package Variant Awareness: Check if multiple package variants exist (e.g., SOIC, TSSOP). Include compatible variants even if not listed in the original query.
 • Verification Requirements:
   - Confirm lifecycle status (Active, NRND, Last Time Buy)
   - Verify package type, pinout, and core electrical specs from datasheet
@@ -100,10 +87,8 @@ exports.handler = async (event, context) => {
    - Part number
    - Brief description of key specifications. Be sure to include the package type and verify it from the manufacturer's datasheet or distributor platforms. Clearly cite the section of the datasheet or distributor listing where the package type is confirmed.
    - Any notable differences from the original part
-   - Manufacturer name if known. 
-   - List if the alternate part matches the functionality and the package of the original part
-   - Price per Unit (with link)
-   - Confirmed Package Type (from datasheet ordering code + at least one distributor listing). Cite exact table/section or distributor field. If not verifiable, state “Package type cannot be confirmed” and exclude.
+   - Manufacturer name if known. Do not limit to manufacturer of original part.
+   - List if the alternate part matches the functionality and the package of the original part• Price per Unit (with link)
 4. Ranking
 Rank the 3 alternatives by closeness to the original part using these priorities:
 1. Package Match
@@ -127,44 +112,54 @@ IMPORTANT: Make each alternative visually distinct and easy to separate. Use cle
 
 Ensure all information is accurate, cited from datasheets or distributor listings, and avoid inventing parts, packages, or specifications. Prioritize functionally equivalent, package-compatible alternates, using block diagram comparison to verify internal functionality.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: 'You are a helpful electronics engineer specializing in finding component alternatives.' },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: 16384
-      })
-    });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || 'OpenAI API error');
-    }
+		const response = await fetch('https://api.openai.com/v1/chat/completions', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Bearer ${apiKey}`
+			},
+			body: JSON.stringify({
+				model: 'gpt-4o',
+				messages: [
+					{
+						role: 'system',
+						content: 'You are a helpful electronics engineer who specializes in finding component alternatives. Provide accurate, practical alternatives with clear specifications. The alternatives should be package and footprint compatible with similar electrical and timing specifications and if applicable, firmware/register similarities.'
+					},
+					{
+						role: 'user',
+						content: prompt
+					}
+				],
+				max_tokens: 4000
+			})
+		});
 
-    const data = await response.json();
-    const markdownContent = data.choices?.[0]?.message?.content || '';
-    const htmlContent = marked(markdownContent).replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+		if (!response.ok) {
+			const errorData = await response.json();
+			throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+		}
 
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        alternatives: htmlContent,
-        raw: markdownContent,
-        searchResults: searchItems
-      })
-    };
-  } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message || 'Server error' })
-    };
-  }
+		const data = await response.json();
+		
+		if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+			throw new Error('Unexpected API response structure');
+		}
+		
+		// Convert markdown to HTML
+		const markdownContent = data.choices[0].message.content;
+		const htmlContent = marked(markdownContent);
+		
+		return {
+			statusCode: 200,
+			headers,
+			body: JSON.stringify({ alternatives: htmlContent })
+		};
+	} catch (error) {
+		return {
+			statusCode: 500,
+			headers,
+			body: JSON.stringify({ error: error.message || 'Server error' })
+		};
+	}
 };
